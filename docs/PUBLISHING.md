@@ -12,15 +12,23 @@ already an installable Claude Code marketplace. Anyone can:
 - Topics set for GitHub search; README is the landing page (hero + install + demo narrative).
 
 ## 📈 Get listed for discovery (manual — needs your account)
-1. **Official Anthropic directory** — `anthropics/claude-plugins-official` is
-   auto-available in every Claude Code install. Submit engram via its PR/submission
-   process (reviewed for quality + security). Highest-leverage listing.
-   → https://github.com/anthropics/claude-plugins-official
-2. **Community directories** (fast, low-friction):
-   - claudemarketplaces.com (daily-updated directory)
-   - claudepluginhub.com/tools/submit-plugin
-   - claudecodecommands.directory/submit
-3. **awesome-claude-code** style lists — open a PR adding engram.
+Per the official docs there are two Anthropic marketplaces:
+- **`claude-community`** (`anthropics/claude-plugins-community`) — the public community
+  marketplace where third-party submissions land **after review**. This is what you
+  submit to. Run `claude plugin validate .` first (CI runs the same check), then submit
+  via an in-app form: **claude.ai/settings/plugins/submit** or
+  **platform.claude.com/plugins/submit**. Approved plugins are pinned to a commit SHA and
+  synced nightly; users install with `/plugin marketplace add anthropics/claude-plugins-community`
+  → `@claude-community`.
+- **`claude-plugins-official`** — curated by Anthropic **at their discretion**; no
+  application process, the submission form does NOT add you here. Auto-available in every
+  install. If listed, your CLI can prompt users to install (Claude Code "plugin hints").
+
+**Independent of all that, engram is installable today** from your own repo:
+`/plugin marketplace add prajwalppv/engram` → `/plugin install engram@engram`.
+
+Extra reach: claudemarketplaces.com, claudepluginhub.com/tools/submit-plugin,
+awesome-claude-code lists (open a PR).
 
 ## 📣 Launch posts (the sales surface)
 Lead every post with the **privacy + "stop re-explaining your codebase"** angle.

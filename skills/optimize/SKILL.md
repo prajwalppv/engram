@@ -1,5 +1,6 @@
 ---
 description: Self-improve engram (tune pruning + optimize the extraction prompt)
+disable-model-invocation: true
 ---
 Run the self-improvement pass:
 1. Call `memory_eval_status` and summarize recall quality + eval-case counts.

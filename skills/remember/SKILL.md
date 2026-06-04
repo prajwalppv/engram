@@ -1,5 +1,6 @@
 ---
 description: Save a durable memory for future sessions
+disable-model-invocation: true
 ---
 Save a memory with the `memory_save` tool capturing: $ARGUMENTS
 

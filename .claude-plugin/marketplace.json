@@ -1,11 +1,21 @@
 {
   "name": "engram",
-  "owner": { "name": "prajwalppv" },
+  "owner": {
+    "name": "prajwalppv",
+    "email": "prajwalppv@gmail.com"
+  },
+  "description": "engram — private, on-device, role-aware memory for Claude Code.",
   "plugins": [
     {
       "name": "engram",
       "source": "./",
-      "description": "Private, on-device, role-aware memory for Claude Code (persistent across sessions)."
+      "description": "Private, on-device memory for Claude Code: persistent across sessions, role-aware (SWE/PM/EM), self-pruning (bonsai), and self-improving. Zero data leaves your machine.",
+      "author": { "name": "prajwalppv" },
+      "homepage": "https://github.com/prajwalppv/engram",
+      "repository": "https://github.com/prajwalppv/engram",
+      "license": "MIT",
+      "category": "productivity",
+      "keywords": ["memory", "knowledge-graph", "privacy", "local-first", "mcp", "role-aware"]
     }
   ]
 }

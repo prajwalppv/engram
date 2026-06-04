@@ -1,7 +1,10 @@
 {
   "name": "engram",
   "description": "Private, on-device memory for Claude Code — persistent across sessions and role-aware. Nothing leaves your laptop.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": { "name": "prajwalppv" },
-  "license": "MIT"
+  "homepage": "https://github.com/prajwalppv/engram",
+  "repository": "https://github.com/prajwalppv/engram",
+  "license": "MIT",
+  "keywords": ["memory", "claude-code", "mcp", "knowledge-graph", "privacy", "local-first", "role-aware"]
 }
