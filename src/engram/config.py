@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     # fires at end-of-turn (Stop), before context compaction (PreCompact), and at
     # session end (SessionEnd), each folding only the new delta into memory.
     capture_on_stop: bool = Field(default=True)        # end-of-turn incremental capture
-    capture_every_turns: int = Field(default=3)        # min new user turns before a Stop capture
+    capture_every_turns: int = Field(default=13)       # min new user turns before a Stop capture
 
     # --- summarization -------------------------------------------------------
     # "claude" = LLM extraction via `claude -p` (best quality, falls back to

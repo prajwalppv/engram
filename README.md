@@ -138,7 +138,7 @@ uv run pytest -q
 | `ENGRAM_ROLE` | `auto` | Pin a role (`swe`/`pm`/`em`) or infer. |
 | `ENGRAM_EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | fastembed model. |
 | `ENGRAM_CAPTURE_ON_STOP` | `true` | Incremental end-of-turn (`Stop`) capture. Set `false` to capture only at PreCompact/SessionEnd. |
-| `ENGRAM_CAPTURE_EVERY_TURNS` | `3` | Min new user turns before a `Stop` capture fires (lower = more durable, more frequent distillation). |
+| `ENGRAM_CAPTURE_EVERY_TURNS` | `13` | Min new user turns before a `Stop` capture fires (lower = more durable + more frequent distillation; higher = less overhead). PreCompact/SessionEnd flush the remainder regardless. |
 
 ## Design seams
 - `core/` — vendor-neutral, no MCP imports.

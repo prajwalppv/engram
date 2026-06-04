@@ -1,7 +1,7 @@
 {
   "name": "engram",
   "description": "Private, on-device memory for Claude Code — persistent across sessions and role-aware. Nothing leaves your laptop.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "author": { "name": "prajwalppv" },
   "homepage": "https://github.com/prajwalppv/engram",
   "repository": "https://github.com/prajwalppv/engram",
