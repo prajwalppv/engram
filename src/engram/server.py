@@ -18,6 +18,7 @@ from .tools import Deps
 from .tools import export as t_export
 from .tools import graph as t_graph
 from .tools import memory as t_memory
+from .tools import prune as t_prune
 from .tools import role as t_role
 
 
@@ -54,7 +55,7 @@ def build_server(settings: Settings) -> FastMCP:
     )
 
     deps = Deps(store=store, search_backend=search_backend, settings=settings)
-    for module in (t_memory, t_graph, t_role, t_export):
+    for module in (t_memory, t_graph, t_role, t_prune, t_export):
         module.register(mcp, deps)
 
     @mcp.tool()

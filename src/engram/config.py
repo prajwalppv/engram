@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     # "auto" = infer from sessions (soft weights). Or pin: "swe" | "pm" | "em".
     role: str = Field(default="auto")
 
+    # --- pruning (bonsai) ----------------------------------------------------
+    prune_min_age_days: int = Field(default=14)   # only fold sessions older than this
+    prune_max_fraction: float = Field(default=0.25)  # <= this share pruned per cycle (⅓-rule)
+    prune_min_cluster: int = Field(default=2)     # min stale sessions per repo to consolidate
+
     # --- summarization -------------------------------------------------------
     # "claude" = LLM extraction via `claude -p` (best quality, falls back to
     # heuristic if unavailable); "heuristic" = no-LLM distillation.
