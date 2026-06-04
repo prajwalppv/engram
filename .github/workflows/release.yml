@@ -1,8 +1,10 @@
 name: Build platform binaries
 
 # On a version tag (or manual run), build the self-contained `engram` binary for
-# mac (arm64 + x86_64) and Linux (x86_64), then commit them into bin/ so the
-# marketplace repo ships zero-setup binaries for every platform.
+# mac (arm64) and Linux (x86_64), then commit them into bin/ so the marketplace
+# repo ships zero-setup binaries. (Intel-Mac `macos-13` is intentionally omitted:
+# GitHub is deprecating those free runners and jobs queue indefinitely; Intel-Mac
+# users are covered by the uv/semantic path. arm64 + Linux cover the rest.)
 on:
   push:
     tags: ["v*"]
@@ -16,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, macos-13, ubuntu-latest]
+        os: [macos-14, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
