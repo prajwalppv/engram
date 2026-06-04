@@ -25,31 +25,49 @@ session start and captures the session at the end. Commands: `/engram:recall`,
 > does not exist yet and is never automatic.
 
 ## Demo
-On Monday you make a few decisions while working. A week later — a brand-new
-session — you ask a fuzzy, differently-worded question, and engram recalls the
-right notes by meaning (local embeddings), fully on-device:
+Last sprint you fought through a prod incident, locked in some decisions, and set
+conventions. Weeks later you start a new feature in a **brand-new session** —
+blank-slate Claude. You ask in your own words, and engram surfaces each crucial
+prior fact by *meaning*, fully on-device — including the gotcha that stops you
+re-causing the incident:
 
 ![engram in action](docs/demo.gif)
 
 ```text
-🧠 engram — Claude Code that remembers across sessions
+🧠 engram — Claude Code remembers the things that bite you
 
-── Monday · repo: checkout-service ──────────────────────────────
-   ✍️  remembered  [Decision]    Use Postgres over Mongo for checkout
-   ✍️  remembered  [Gotcha]      Stripe webhooks must be idempotent
-   ✍️  remembered  [Convention]  Money is always integer cents
+── Session 1 · last sprint · repo: checkout-service ─────────────
+   ✍️  [Gotcha]      Payment webhook double-charged 1,400 customers (PROD-142)
+   ✍️  [Decision]    Idempotency-Key required on every write endpoint
+   ✍️  [Gotcha]      orders↔inventory deadlock under concurrent checkout
+   ✍️  [Decision]    Postgres over Mongo for checkout
+   ✍️  [Convention]  Money in integer cents; timestamps in UTC ISO-8601
+   ✍️  [Constraint]  PCI — full card numbers never touch logs
 
-   (session ends — Claude would normally forget all of this)
+   (session ends — normally Claude forgets every line of this)
 
-── The next week · brand-new session ───────────────────────────
-   you ▸ which database did we go with for the cart and why?
+── Session 2 · today · new feature: subscription renewals ───────
+   …a brand-new session. engram recalls by MEANING, fully on-device:
 
-   engram recalls (semantic match, fully on-device):
-      • [Decision]    Use Postgres over Mongo for checkout   ·  score 0.71
-      • [Gotcha]      Stripe webhooks must be idempotent     ·  score 0.58
-      • [Convention]  Money is always integer cents          ·  score 0.53
+   you ▸ I'll add automatic retries to the renewal payment call — anything I should know?
+      ↳ [Gotcha] Payment webhook double-charged 1,400 customers (PROD-142)  ·  0.64
+        “Synchronous retries on the Stripe webhook double-charged 1,400 customers on 2026-05-12. NEVER…”
+        🛑 stops you re-causing the May-12 incident
 
-   → Claude answers with YOUR prior decision — no re-explaining.
+   you ▸ how do we keep a write endpoint safe if the client calls it twice?
+      ↳ [Decision] Idempotency-Key required on every write endpoint  ·  0.63
+        “All POST/PUT take an Idempotency-Key header, stored in processed_requests to short-circuit…”
+
+   you ▸ what's our rule for storing money amounts and timestamps?
+      ↳ [Convention] Money in integer cents; timestamps in UTC ISO-8601  ·  0.78
+        “Never floats for currency — store/compute in integer cents, format at the UI edge…”
+
+   you ▸ are we allowed to log a customer's full credit-card number?
+      ↳ [Constraint] PCI — full card numbers never touch logs  ·  0.67
+        “Mask PAN to last-4 everywhere; full card data never enters logs, traces, or memory…”
+
+→ Different words, surfaced by meaning. The incident, the conventions, the
+  constraints — carried across sessions so they're never relearned.
 
 🔒 Everything stayed on this machine. No server, no account, no telemetry.
 ```

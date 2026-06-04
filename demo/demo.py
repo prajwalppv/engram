@@ -30,10 +30,23 @@ os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 
-def slow(line: str = "", pause: float = 0.5) -> None:
+def slow(line: str = "", pause: float = 0.35) -> None:
     print(line)
     sys.stdout.flush()
     time.sleep(pause)
+
+
+def _excerpt(memory, store, rel_path: str, n: int = 86) -> str:
+    """First real line of a remembered note's body (skip heading + datestamp)."""
+    try:
+        body = memory.read(store, rel_path).body or ""
+    except Exception:
+        return ""
+    for ln in body.splitlines():
+        s = ln.strip()
+        if s and not s.startswith("#") and not s.startswith("_") and not s.startswith("**"):
+            return s if len(s) <= n else s[: n - 1].rstrip() + "…"
+    return ""
 
 
 def main() -> int:
@@ -53,43 +66,70 @@ def main() -> int:
     backend = build_backend(settings, store)
     role = current_role(store, settings.role)
 
-    slow("🧠 engram — Claude Code that remembers across sessions\n", 0.8)
+    slow("🧠 engram — Claude Code remembers the things that bite you\n", 0.7)
 
-    # --- Monday: you make durable decisions while working ---------------------
-    slow("── Monday · repo: checkout-service ──────────────────────────────", 0.6)
+    # --- Session 1: a hard week on the checkout service -----------------------
+    slow("── Session 1 · last sprint · repo: checkout-service ─────────────", 0.5)
     seed = [
-        ("Decision", "Use Postgres over Mongo for checkout",
-         "Chose Postgres: we need multi-row transactions for the cart→order "
-         "flow and strong consistency on inventory. Mongo's eventual "
-         "consistency bit us in the prototype."),
-        ("Gotcha", "Stripe webhooks must be idempotent",
-         "Stripe retries webhooks; dedupe on event.id or you double-charge. "
-         "We key on the PaymentIntent id in the `processed_events` table."),
-        ("Convention", "Money is always integer cents",
-         "Never floats for currency. Store/compute in integer cents; format "
-         "only at the UI boundary."),
+        ("Gotcha", "Payment webhook double-charged 1,400 customers (PROD-142)",
+         "Synchronous retries on the Stripe webhook double-charged 1,400 customers "
+         "on 2026-05-12. NEVER retry the webhook inline — dedupe on event.id and "
+         "process async."),
+        ("Decision", "Idempotency-Key required on every write endpoint",
+         "All POST/PUT take an Idempotency-Key header, stored in processed_requests "
+         "to short-circuit retries. Added after a load test produced duplicate orders."),
+        ("Gotcha", "orders↔inventory deadlock under concurrent checkout",
+         "Concurrent checkouts deadlock on the orders/inventory FK. Always acquire "
+         "row locks in ascending id order."),
+        ("Decision", "Postgres over Mongo for checkout",
+         "Need multi-row transactions for cart→order and strong inventory "
+         "consistency. Mongo's eventual consistency caused oversells in the prototype."),
+        ("Convention", "Money in integer cents; timestamps in UTC ISO-8601",
+         "Never floats for currency — store/compute in integer cents, format at the "
+         "UI edge. All timestamps stored UTC, ISO-8601."),
+        ("Constraint", "PCI — full card numbers never touch logs",
+         "Mask PAN to last-4 everywhere; full card data never enters logs, traces, "
+         "or memory. Audited quarterly."),
     ]
     for type_, title, body in seed:
         memory.save(store, role, type_=type_, title=title, body=body,
                     repo="checkout-service", search_backend=backend)
-        slow(f"   ✍️  remembered  [{type_}]  {title}", 0.45)
+        slow(f"   ✍️  [{type_}]  {title}", 0.3)
 
-    slow("\n   (session ends — Claude would normally forget all of this)\n", 0.9)
+    slow("\n   (session ends — normally Claude forgets every line of this)\n", 0.8)
 
-    # --- A week later: brand-new session, you ask a fuzzy question ------------
-    slow("── The next week · brand-new session ───────────────────────────", 0.6)
-    query = "which database did we go with for the cart and why?"
-    slow(f"   you ▸ {query}\n", 0.8)
-    slow("   engram recalls (semantic match, fully on-device):", 0.5)
+    # --- Session 2: a new feature, weeks later, blank-slate Claude ------------
+    slow("── Session 2 · today · new feature: subscription renewals ───────", 0.5)
+    slow("   …a brand-new session. engram recalls by MEANING, fully on-device:\n", 0.6)
 
-    hits = memory.recall(store, backend, query, repo="checkout-service", limit=3)
-    for h in hits:
-        slow(f"      • [{h.type}] {h.title}   ·  score {h.score:.2f}", 0.5)
+    asks = [
+        ("I'll add automatic retries to the renewal payment call — anything I should know?",
+         "🛑 stops you re-causing the May-12 incident"),
+        ("how do we keep a write endpoint safe if the client calls it twice?", ""),
+        ("what's our rule for storing money amounts and timestamps?", ""),
+        ("are we allowed to log a customer's full credit-card number?", ""),
+    ]
+    shown: set[str] = set()
+    for q, why in asks:
+        slow(f"   you ▸ {q}", 0.6)
+        # Surface the most relevant memory we haven't shown yet — so each
+        # question recalls a DIFFERENT crucial fact from the prior session.
+        hits = memory.recall(store, backend, q, repo="checkout-service", limit=4)
+        h = next((x for x in hits if x.rel_path not in shown), hits[0] if hits else None)
+        if h:
+            shown.add(h.rel_path)
+            slow(f"      ↳ [{h.type}] {h.title}  ·  {h.score:.2f}", 0.35)
+            ex = _excerpt(memory, store, h.rel_path)
+            if ex:
+                slow(f"        “{ex}”", 0.3)
+            if why:
+                slow(f"        {why}", 0.45)
+        slow("", 0.15)
 
-    slow("")
-    slow("   → Claude answers with YOUR prior decision — no re-explaining.", 0.7)
+    slow("→ Different words, surfaced by meaning. The incident, the conventions,", 0.4)
+    slow("  the constraints — carried across sessions so they're never relearned.", 0.6)
     slow("\n🔒 Everything stayed on this machine. No server, no account, no telemetry.",
-         0.4)
+         0.3)
     return 0
 
 

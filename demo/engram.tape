@@ -5,28 +5,27 @@
 # Output:  docs/demo.gif
 #
 # The embedding model is cached outside the throwaway store (demo.py sets
-# FASTEMBED_CACHE_PATH), so the Hide/Show warmup below sticks and the recorded
-# run is fast and clean.
+# FASTEMBED_CACHE_PATH), so the run is fast and the recording is clean.
 
 Output docs/demo.gif
 
 Set Shell bash
 Set FontSize 18
-Set Width 1180
-Set Height 760
+Set Width 1320
+Set Height 900
 Set Padding 24
 Set Theme "Dracula"
 Set TypingSpeed 40ms
 
-# --- off-camera: clean prompt + warm uv sync and the model cache --------------
+# --- off-camera: clean prompt + trigger any uv sync so the visible run is clean.
 Hide
 Type "export PS1='$ '" Enter
-Type "uv sync >/dev/null 2>&1; uv run python demo/demo.py >/dev/null 2>&1" Enter
-Sleep 75s
+Type "uv run python -c 'pass' >/dev/null 2>&1" Enter
+Sleep 20s
 Type "clear" Enter
 Show
 
-# --- the actual recording ----------------------------------------------------
+# --- the actual recording (demo runs ~14s; wait for the closing line) ---------
 Type "uv run python demo/demo.py" Sleep 400ms Enter
-Wait+Screen@120s /telemetry/
+Wait+Screen@90s /telemetry/
 Sleep 2s
