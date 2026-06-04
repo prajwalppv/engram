@@ -23,8 +23,11 @@ let you install it.
 
 ## The solution
 A one-plugin install that adds:
-1. **Carryover** — `SessionStart` recalls memory for your repo; `SessionEnd` distills
-   the session into typed, linked memory (LLM-quality extraction).
+1. **Carryover** — `SessionStart` recalls memory for your repo; the session is
+   distilled into typed, linked memory (LLM-quality extraction) **continuously** —
+   at end-of-turn, before every context compaction, and at session end — so nothing
+   is lost to compaction or an abrupt terminal close. Capture is incremental and
+   idempotent (a per-session high-water mark + dedup).
 2. **Role-awareness** — SWE / PM / EM ontologies, inferred automatically from how you
    work (soft weights, overridable).
 3. **A self-pruning knowledge graph** — "bonsai" pruning keeps memory razor-sharp:
@@ -39,6 +42,7 @@ A one-plugin install that adds:
 | Cloud agent-memory SaaS | **On-device, zero egress** — passes security review. |
 | A long `CLAUDE.md` | Automatic, role-aware, self-pruning — not a file you hand-maintain. |
 | RAG over chat logs | A **typed knowledge graph** (multi-hop) + extraction quality that **self-improves** from feedback. |
+| End-of-session capture only | **Lossless across compaction & crashes** — captures incrementally every turn and before each compaction, not just on a clean exit (which often never happens). |
 | Delete-by-TTL memory | **Compress-don't-delete** + lifeline/deadwood preservation + self-tuned pruning. |
 | Lock-in | Plain markdown + wikilinks. Own your data; leave anytime. |
 
@@ -90,7 +94,8 @@ for Python devs) — or ship a self-contained binary later to drop even that.
 - [ ] Public/internal plugin marketplace repo (this repo already is one).
 - [ ] `.claude/settings.json` snippet for teams; managed-settings doc for IT.
 - [ ] Security one-pager: "what engram does and does not send" (answer: nothing).
-- [ ] A "how it works" diagram (capture → graph → recall → prune → self-improve).
+- [x] A "how it works" diagram (capture → graph → recall → prune → self-improve)
+  — see [ARCHITECTURE.md](ARCHITECTURE.md) (rendered Mermaid; embedded in the README).
 
 ## Honest caveats for the pitch
 - "One-click" is really "two commands" (or zero via committed/managed settings) —

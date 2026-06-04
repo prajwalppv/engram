@@ -27,17 +27,56 @@ session start and captures the session at the end. Commands: `/engram:recall`,
 ## How it works
 - Memory is a **local knowledge graph** of markdown notes (wikilinks + backlinks),
   searched semantically (local embeddings, no cloud).
-- A Claude Code **plugin** wires two hooks:
-  - `SessionStart` → **recall** context relevant to your current repo/task.
-  - `SessionEnd` → **save** a distilled summary (decisions, gotchas) of the session.
+- A Claude Code **plugin** captures and recalls memory across the session lifecycle —
+  **not just at the end**, so nothing is lost to compaction or an abrupt terminal close:
+  - `SessionStart` → **recall** context relevant to your current repo/task (also after a compaction).
+  - `Stop` (end of every turn) → **incremental capture**, throttled so it only distills once a few new turns accumulate.
+  - `PreCompact` → **flush before compaction** — captures detail right before Claude summarizes it away.
+  - `SessionEnd` → **final flush** of anything remaining.
+- Every capture is **incremental and idempotent**: a per-session high-water mark means
+  each trigger folds only the *new* delta into memory, and content-hash + semantic dedup
+  prevent duplicates. See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 - A **role profile** (SWE / PM / EM / …) shapes what gets extracted and recalled.
   Your role is inferred as soft weights from your sessions and is overridable.
 - A **feedback loop** (was a recalled memory used? edited? rejected?) tunes the
   role weights and the extraction/recall prompts over time.
 
+## Architecture
+Memory is captured at multiple points in the session lifecycle and recalled at the
+start of the next one — all on-device. ([full diagrams + component view →](docs/ARCHITECTURE.md))
+
+```mermaid
+flowchart TD
+    subgraph CC["Claude Code session"]
+        S0(["SessionStart"])
+        STOP(["Stop · every turn"])
+        PC(["PreCompact"])
+        SE(["SessionEnd"])
+    end
+    S0 -->|recall| R[["recall: memory for this repo"]]
+    R -->|additionalContext| CC
+    STOP -->|"capture (throttled)"| CAP
+    PC -->|"capture (forced flush)"| CAP
+    SE -->|"capture (forced flush)"| CAP
+    CAP["capture_delta()<br/>new events since high-water mark"]
+    CAP --> HWM[("high-water mark<br/>.state/sessions")]
+    CAP --> SUM["summarize → typed, linked nodes"]
+    SUM --> STORE[("local store<br/>markdown graph + index")]
+    STORE -.->|next session| R
+
+    classDef hook fill:#1f2937,stroke:#60a5fa,color:#e5e7eb;
+    classDef work fill:#0f172a,stroke:#34d399,color:#e5e7eb;
+    classDef data fill:#111827,stroke:#fbbf24,color:#e5e7eb;
+    class S0,STOP,PC,SE hook;
+    class R,CAP,SUM work;
+    class HWM,STORE data;
+```
+
 ## Status
 Working MVP — single-user, local-only. **Semantic recall on by default** (local
-embeddings); automatic text fallback when embeddings aren't available.
+embeddings); automatic text fallback when embeddings aren't available. **Durable
+multi-trigger capture** (Stop / PreCompact / SessionEnd) so memory survives
+compaction and abrupt exits.
 
 ## Requirements
 - [uv](https://docs.astral.sh/uv/) for the full **semantic** experience. On first
@@ -71,8 +110,9 @@ Or from this local checkout, to try it now:
 Then restart Claude Code. The plugin:
 - spawns the local `engram-mcp` server (stdio) over a per-user store at
   `${CLAUDE_PLUGIN_DATA}/store`;
-- adds a **SessionStart** hook that recalls memory for your current repo, and a
-  **SessionEnd** hook that distills the session into memory;
+- adds lifecycle hooks that recall memory at **SessionStart** and capture it
+  incrementally at **Stop** / **PreCompact** / **SessionEnd** (durable across
+  compaction and abrupt exits);
 - adds commands: `/engram:recall`, `/engram:remember`, `/engram:status`.
 
 **Zero-click for a shared repo:** commit a `.claude/settings.json` with
@@ -97,6 +137,8 @@ uv run pytest -q
 | `ENGRAM_SEARCH_BACKEND` | `semantic` | `semantic` (local embeddings) or `text`. |
 | `ENGRAM_ROLE` | `auto` | Pin a role (`swe`/`pm`/`em`) or infer. |
 | `ENGRAM_EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | fastembed model. |
+| `ENGRAM_CAPTURE_ON_STOP` | `true` | Incremental end-of-turn (`Stop`) capture. Set `false` to capture only at PreCompact/SessionEnd. |
+| `ENGRAM_CAPTURE_EVERY_TURNS` | `3` | Min new user turns before a `Stop` capture fires (lower = more durable, more frequent distillation). |
 
 ## Design seams
 - `core/` — vendor-neutral, no MCP imports.

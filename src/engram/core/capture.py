@@ -42,3 +42,48 @@ def capture_session(
         )
         results.append(res)
     return results
+
+
+def capture_delta(
+    store: "Store",
+    settings: "Settings",
+    *,
+    transcript_path: str,
+    repo: str | None = None,
+    session_id: str | None = None,
+    search_backend: "SearchBackend | None" = None,
+    force: bool = False,
+    min_turns: int = 1,
+) -> list["SaveResult"]:
+    """Capture only the *new* transcript events since this session's high-water
+    mark, then advance the mark. Idempotent across the Stop / PreCompact /
+    SessionEnd triggers that all call into here.
+
+    - ``force=True``  → flush whatever delta exists (PreCompact, SessionEnd).
+    - ``force=False`` → only fire once at least ``min_turns`` new user turns have
+      accumulated (the throttled end-of-turn Stop trigger); otherwise leave the
+      mark unadvanced so the next trigger picks the delta up.
+    """
+    from . import checkpoint, ingest
+
+    events = ingest.read_transcript(transcript_path)
+    marker = checkpoint.load(store, session_id)
+    start = int(marker.get("processed_events", 0))
+    if start > len(events):  # transcript rotated/truncated → reprocess from 0
+        start = 0
+    delta = events[start:]
+    if not delta:
+        return []
+    new_user_turns = sum(1 for e in delta if e["role"] == "user")
+    if not force and new_user_turns < max(1, min_turns):
+        return []  # accumulate; a later trigger will flush this delta
+
+    text = "\n\n".join(f"{e['role']}: {e['text']}" for e in delta)
+    results = capture_session(
+        store, settings, transcript_text=text, repo=repo,
+        session_id=session_id, search_backend=search_backend,
+    )
+    marker["processed_events"] = len(events)
+    marker["captures"] = int(marker.get("captures", 0)) + 1
+    checkpoint.save(store, session_id, marker)
+    return results

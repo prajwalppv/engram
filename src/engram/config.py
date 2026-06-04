@@ -34,6 +34,13 @@ class Settings(BaseSettings):
     prune_max_fraction: float = Field(default=0.25)  # <= this share pruned per cycle (⅓-rule)
     prune_min_cluster: int = Field(default=2)     # min stale sessions per repo to consolidate
 
+    # --- incremental capture (multi-trigger) ---------------------------------
+    # Capture is incremental + idempotent (a per-session high-water mark): it
+    # fires at end-of-turn (Stop), before context compaction (PreCompact), and at
+    # session end (SessionEnd), each folding only the new delta into memory.
+    capture_on_stop: bool = Field(default=True)        # end-of-turn incremental capture
+    capture_every_turns: int = Field(default=3)        # min new user turns before a Stop capture
+
     # --- summarization -------------------------------------------------------
     # "claude" = LLM extraction via `claude -p` (best quality, falls back to
     # heuristic if unavailable); "heuristic" = no-LLM distillation.

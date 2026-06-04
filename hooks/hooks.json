@@ -12,6 +12,31 @@
         ]
       }
     ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/engram-launch hook capture",
+            "timeout": 120,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/engram-launch hook precompact",
+            "timeout": 120
+          }
+        ]
+      }
+    ],
     "SessionEnd": [
       {
         "matcher": "*",
