@@ -10,7 +10,7 @@
       "name": "engram",
       "source": "./",
       "description": "Private, on-device memory for Claude Code: persistent across sessions, role-aware (SWE/PM/EM), self-pruning (bonsai), and self-improving. Zero data leaves your machine.",
-      "author": { "name": "prajwalppv" },
+      "author": { "name": "prajwalppv", "email": "prajwalppv@gmail.com" },
       "homepage": "https://github.com/prajwalppv/engram",
       "repository": "https://github.com/prajwalppv/engram",
       "license": "MIT",

@@ -24,6 +24,42 @@ session start and captures the session at the end. Commands: `/engram:recall`,
 > A future, opt-in, sanitized *export* could let teammates share selected learnings; it
 > does not exist yet and is never automatic.
 
+## Demo
+On Monday you make a few decisions while working. A week later — a brand-new
+session — you ask a fuzzy, differently-worded question, and engram recalls the
+right notes by meaning (local embeddings), fully on-device:
+
+```text
+🧠 engram — Claude Code that remembers across sessions
+
+── Monday · repo: checkout-service ──────────────────────────────
+   ✍️  remembered  [Decision]    Use Postgres over Mongo for checkout
+   ✍️  remembered  [Gotcha]      Stripe webhooks must be idempotent
+   ✍️  remembered  [Convention]  Money is always integer cents
+
+   (session ends — Claude would normally forget all of this)
+
+── The next week · brand-new session ───────────────────────────
+   you ▸ which database did we go with for the cart and why?
+
+   engram recalls (semantic match, fully on-device):
+      • [Decision]    Use Postgres over Mongo for checkout   ·  score 0.71
+      • [Gotcha]      Stripe webhooks must be idempotent     ·  score 0.58
+      • [Convention]  Money is always integer cents          ·  score 0.53
+
+   → Claude answers with YOUR prior decision — no re-explaining.
+
+🔒 Everything stayed on this machine. No server, no account, no telemetry.
+```
+
+Run it yourself (throwaway store, ~15s): `uv run python demo/demo.py`.
+Record an animated version with [VHS](https://github.com/charmbracelet/vhs):
+`vhs demo/engram.tape` → writes `docs/demo.gif`.
+
+<!-- After recording, drop the GIF in by uncommenting:
+![engram in action](docs/demo.gif)
+-->
+
 ## How it works
 - Memory is a **local knowledge graph** of markdown notes (wikilinks + backlinks),
   searched semantically (local embeddings, no cloud).
