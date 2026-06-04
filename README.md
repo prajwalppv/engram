@@ -1,14 +1,28 @@
-# engram
+# 🧠 engram — give Claude Code a memory
 
-A **private, on-device memory layer for Claude Code**. It lets Claude remember
-across your sessions — decisions, gotchas, conventions, context — and it's
-**role-aware**: what it remembers for a software engineer differs from a PM or a
-manager, and it learns your role automatically from how you work.
+**Claude Code forgets everything when a session ends. engram fixes that — privately, on your machine, and it gets sharper over time.**
 
-**Absolute privacy by construction:** everything is stored locally on your own
-laptop. No server, no account, no auth, no telemetry — **zero bytes leave your
-machine.** (A future, opt-in, sanitized *export* could let teammates share
-selected learnings; it does not exist yet and is never automatic.)
+engram is a Claude Code **plugin** that remembers the durable facts from each session
+(decisions, gotchas, conventions) and recalls the relevant ones the moment you start
+working again. It's **role-aware** (it remembers differently for an engineer vs a PM
+vs a manager, learned automatically), it keeps itself sharp with **bonsai-style
+pruning**, and it **self-improves** from your feedback.
+
+**🔒 Absolute privacy by construction:** everything is stored locally on your own
+laptop. No server, no account, no auth, no telemetry — **zero bytes leave your machine.**
+
+## Install (Claude Code)
+```
+/plugin marketplace add prajwalppv/engram
+/plugin install engram@engram
+```
+Restart Claude Code. That's it — on a platform with a prebuilt binary you need **nothing
+else installed** (no Python, no uv). Then just work: engram recalls your repo's memory at
+session start and captures the session at the end. Commands: `/engram:recall`,
+`/engram:remember`, `/engram:status`, `/engram:prune`, `/engram:optimize`.
+
+> A future, opt-in, sanitized *export* could let teammates share selected learnings; it
+> does not exist yet and is never automatic.
 
 > Separate project from `obsidian-mcp`. It reuses the *patterns* proven there
 > (pluggable seams, local fastembed semantic search, filesystem safety) but is
@@ -45,7 +59,7 @@ binary is the default, text-recall build; semantic recall stays an opt-in uv ins
 ## Install as a Claude Code plugin (the few-click path)
 From a private/internal git repo (recommended for a team):
 ```
-/plugin marketplace add your-org/engram
+/plugin marketplace add prajwalppv/engram
 /plugin install engram@engram
 ```
 Or from this local checkout, to try it now:

@@ -1,0 +1,50 @@
+name: Build platform binaries
+
+# On a version tag (or manual run), build the self-contained `engram` binary for
+# mac (arm64 + x86_64) and Linux (x86_64), then commit them into bin/ so the
+# marketplace repo ships zero-setup binaries for every platform.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-13, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Build binary
+        run: bash scripts/build_binary.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-${{ matrix.os }}
+          path: bin/**
+
+  commit:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Collect binaries into bin/
+        run: |
+          mkdir -p bin
+          cp -rv artifacts/*/bin/* bin/ || true
+          ls -R bin
+      - name: Commit binaries
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add bin/
+          git commit -m "ci: platform binaries for ${GITHUB_REF_NAME:-manual}" || echo "no changes"
+          git push origin HEAD:main || true
