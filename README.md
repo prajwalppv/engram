@@ -24,10 +24,6 @@ session start and captures the session at the end. Commands: `/engram:recall`,
 > A future, opt-in, sanitized *export* could let teammates share selected learnings; it
 > does not exist yet and is never automatic.
 
-> Separate project from `obsidian-mcp`. It reuses the *patterns* proven there
-> (pluggable seams, local fastembed semantic search, filesystem safety) but is
-> its own clean codebase.
-
 ## How it works
 - Memory is a **local knowledge graph** of markdown notes (wikilinks + backlinks),
   searched semantically (local embeddings, no cloud).
@@ -99,7 +95,7 @@ uv run pytest -q
 | `ENGRAM_ROLE` | `auto` | Pin a role (`swe`/`pm`/`em`) or infer. |
 | `ENGRAM_EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | fastembed model. |
 
-## Design seams (stolen from obsidian-mcp, kept clean)
+## Design seams
 - `core/` — vendor-neutral, no MCP imports.
 - `roles/` — the Profile seam applied to *people*; discoverable via the
   `engram.roles` entry-point group.

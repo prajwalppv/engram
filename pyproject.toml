@@ -1,6 +1,6 @@
 [project]
 name = "engram"
-version = "0.1.0"
+version = "0.1.2"
 description = "A private, on-device memory layer for Claude Code — persistent, role-aware, graph-structured. Nothing leaves your laptop."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
@@ -22,8 +22,8 @@ engram = "engram.cli:main"
 engram-mcp = "engram.server:main"
 engram-hook = "engram.hookcli:main"
 
-# Role profiles can ship as separate packages via this entry-point group — the
-# same plug-n-play pattern proven in obsidian-mcp's profile system.
+# Role profiles can ship as separate packages via this entry-point group — a
+# plug-n-play seam so new roles need no changes to this codebase.
 #   [project.entry-points."engram.roles"]
 #   sre = "my_pkg.role:SRERole"
 

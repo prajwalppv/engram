@@ -1,6 +1,6 @@
 """Safety: path containment + backup-before-overwrite + optional git snapshot.
 
-Same guarantees as obsidian-mcp: never escape the store, back up before any
+Hard guarantees: never escape the store, back up before any
 overwrite, never delete. (git_snapshot is here so an opt-in personal encrypted
 backup can reuse it later — off by default.)
 """

@@ -1,7 +1,7 @@
 """The local memory store — filesystem-backed, safety-wrapped. On-device only.
 
 A thin StorageBackend protocol keeps the door open for a different backend later
-(the same seam obsidian-mcp uses), but there is one impl: the local filesystem.
+a small seam, but there is one impl: the local filesystem.
 """
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
 """SearchBackend seam: Text (default) + Semantic (local fastembed, lazy).
 
-Mirrors obsidian-mcp's design: heavy deps lazy-imported inside the semantic
+Design: heavy deps are lazy-imported inside the semantic
 backend; falls back to text if unavailable; index persisted OUTSIDE the visible
 store tree (under the store's .index dir, which iter_entries ignores).
 """

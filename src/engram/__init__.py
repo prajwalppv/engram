@@ -1,6 +1,6 @@
 """engram — a private, on-device memory layer for Claude Code.
 
-Architecture (seams mirrored from obsidian-mcp, rebuilt for the memory domain):
+Architecture (swappable seams, built for the memory domain):
   * ``core/``  — vendor-neutral memory engine. No MCP imports. Filesystem-backed
                  markdown graph + local semantic recall + safety.
   * ``roles/`` — the Profile seam applied to PEOPLE. A role (SWE/PM/EM/…) defines

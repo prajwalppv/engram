@@ -1,7 +1,7 @@
 """Memory entries = graph nodes persisted as markdown. Save / recall / read.
 
 Memory ACCUMULATES: saving to an existing title appends a dated block rather than
-overwriting (the journey-preservation value, borrowed from obsidian-mcp). Every
+overwriting (a journey-preservation value). Every
 entry carries a ``scope`` (default ``private``) — the dormant seam for a future
 opt-in team export.
 """
