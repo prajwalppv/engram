@@ -40,6 +40,7 @@ def test_read_transcript_and_distill(tmp_path):
 def test_hookcli_ingest_and_recall(tmp_path, monkeypatch, capsys):
     store_dir = tmp_path / "store"
     monkeypatch.setenv("ENGRAM_STORE_DIR", str(store_dir))
+    monkeypatch.setenv("ENGRAM_SUMMARIZER", "heuristic")  # never call claude in tests
     tpath = tmp_path / "t.jsonl"
     tpath.write_text(json.dumps({"message": {"role": "user", "content": "Fix the deploy script"}}) + "\n",
                      encoding="utf-8")

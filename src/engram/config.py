@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     # "auto" = infer from sessions (soft weights). Or pin: "swe" | "pm" | "em".
     role: str = Field(default="auto")
 
+    # --- summarization -------------------------------------------------------
+    # "claude" = LLM extraction via `claude -p` (best quality, falls back to
+    # heuristic if unavailable); "heuristic" = no-LLM distillation.
+    summarizer: str = Field(default="claude")
+    summarizer_timeout: int = Field(default=120)
+
     # --- recall / semantic ---------------------------------------------------
     search_backend: str = Field(default="text")  # "text" | "semantic"
     embedding_model: str = Field(default="BAAI/bge-small-en-v1.5")

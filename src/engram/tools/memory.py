@@ -4,7 +4,7 @@ from __future__ import annotations
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 
-from ..core import feedback, ingest, memory
+from ..core import capture, feedback, ingest, memory
 from ..core import roles as role_engine
 from ..core.errors import CoreError
 from . import Deps
@@ -75,25 +75,20 @@ def register(mcp: FastMCP, deps: Deps) -> None:
         Used by the SessionEnd hook. Provide either a transcript path or raw text.
         Returns the saved summary and the updated role status.
         """
+        if transcript_path:
+            content = ingest.transcript_text(transcript_path)
+        elif text:
+            content = text
+        else:
+            raise ToolError("Provide transcript_path or text.")
         try:
-            if transcript_path:
-                distilled = ingest.distill_path(transcript_path, repo=repo)
-            elif text:
-                events = [{"role": "user", "text": text}]
-                distilled = ingest.distill(events, repo=repo, full_text=text)
-            else:
-                raise ToolError("Provide transcript_path or text.")
-            if not distilled:
-                return {"saved": None, "reason": "nothing substantive to capture"}
-
-            role_engine.update_from_session(deps.store, distilled["full_text"])
-            res = memory.save(
-                deps.store, _role(), type_="SessionSummary",
-                title=distilled["title"], body=distilled["body"],
+            results = capture.capture_session(
+                deps.store, deps.settings, transcript_text=content,
                 repo=repo, session_id=session_id, search_backend=deps.search_backend,
             )
             return {
-                "saved": res.model_dump(),
+                "saved": [r.model_dump() for r in results],
+                "count": len(results),
                 "role": role_engine.status(deps.store, deps.settings.role),
             }
         except CoreError as e:

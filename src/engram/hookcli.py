@@ -69,18 +69,15 @@ def cmd_ingest() -> int:
     if not tpath or not os.path.exists(tpath):
         return 0
     try:
-        from .core import ingest, memory
-        from .core import roles as role_engine
+        from .core import capture, ingest
         store, settings = _store_and_settings()
-        distilled = ingest.distill_path(tpath, repo=repo)
-        if not distilled:
-            return 0
-        role_engine.update_from_session(store, distilled["full_text"])
-        role = role_engine.current_role(store, settings.role)
-        memory.save(store, role, type_="SessionSummary", title=distilled["title"],
-                    body=distilled["body"], repo=repo,
-                    session_id=data.get("session_id"), search_backend=None)
-        print(f"[engram] captured session memory for {repo or 'general'}", file=sys.stderr)
+        text = ingest.transcript_text(tpath)
+        results = capture.capture_session(
+            store, settings, transcript_text=text, repo=repo,
+            session_id=data.get("session_id"),
+        )
+        print(f"[engram] captured {len(results)} memory item(s) for "
+              f"{repo or 'general'}", file=sys.stderr)
     except Exception as e:  # best-effort
         print(f"[engram] ingest skipped: {e}", file=sys.stderr)
     return 0

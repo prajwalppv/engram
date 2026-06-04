@@ -83,3 +83,8 @@ def distill(events: list[dict], *, repo: str | None = None,
 def distill_path(path: str | Path, *, repo: str | None = None) -> dict | None:
     events = read_transcript(path)
     return distill(events, repo=repo)
+
+
+def transcript_text(path: str | Path) -> str:
+    """Flatten a transcript into role-tagged text for the summarizer."""
+    return "\n\n".join(f"{e['role']}: {e['text']}" for e in read_transcript(path))
