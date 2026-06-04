@@ -28,7 +28,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: bin-${{ matrix.os }}
-          path: bin/**
+          # Upload the bin/ dir (not a glob): upload-artifact strips the common
+          # ancestor, so a glob would drop the <os>_<arch>/ prefix we rely on.
+          path: bin
+          if-no-files-found: error
 
   commit:
     needs: build
@@ -41,12 +44,24 @@ jobs:
       - name: Collect binaries into bin/
         run: |
           mkdir -p bin
-          cp -rv artifacts/*/bin/* bin/ || true
+          # Each artifact dir contains <os>_<arch>/engram. Find every engram
+          # binary and place it under bin/<os>_<arch>/, regardless of the
+          # artifact wrapper-dir name.
+          found=0
+          while IFS= read -r f; do
+            d=$(basename "$(dirname "$f")")   # e.g. linux_x86_64
+            mkdir -p "bin/$d"
+            cp -v "$f" "bin/$d/engram"
+            chmod +x "bin/$d/engram"
+            found=$((found+1))
+          done < <(find artifacts -type f -name engram)
+          echo "collected $found binaries"
+          [ "$found" -gt 0 ] || { echo "::error::no binaries collected"; exit 1; }
           ls -R bin
       - name: Commit binaries
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add bin/
-          git commit -m "ci: platform binaries for ${GITHUB_REF_NAME:-manual}" || echo "no changes"
-          git push origin HEAD:main || true
+          git commit -m "ci: platform binaries for ${GITHUB_REF_NAME:-manual}" || { echo "no changes"; exit 0; }
+          git push origin HEAD:main
