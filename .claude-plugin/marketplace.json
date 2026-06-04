@@ -1,0 +1,11 @@
+{
+  "name": "engram",
+  "owner": { "name": "prajwalppv" },
+  "plugins": [
+    {
+      "name": "engram",
+      "source": "./",
+      "description": "Private, on-device, role-aware memory for Claude Code (persistent across sessions)."
+    }
+  ]
+}
