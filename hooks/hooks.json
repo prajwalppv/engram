@@ -32,7 +32,8 @@
           {
             "type": "command",
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/engram-launch hook precompact",
-            "timeout": 120
+            "timeout": 120,
+            "async": true
           }
         ]
       }
@@ -44,7 +45,8 @@
           {
             "type": "command",
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/engram-launch hook ingest",
-            "timeout": 120
+            "timeout": 120,
+            "async": true
           }
         ]
       }

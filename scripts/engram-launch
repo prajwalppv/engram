@@ -12,6 +12,14 @@ BIN="$ROOT/bin/${OS}_${ARCH}/engram"
 
 SUB="${1:-}"; shift || true
 
+# 0) Recursion guard. The summarizer may invoke `claude -p`, which is itself a
+# Claude Code session and would fire these same hooks again. When we spawn it we
+# set ENGRAM_DISABLE_HOOKS=1, so a nested hook call exits here immediately —
+# before any uv/binary cold-start. (Only gates hooks; the MCP server is unaffected.)
+if [ "$SUB" = "hook" ] && [ -n "${ENGRAM_DISABLE_HOOKS:-}" ]; then
+  exit 0
+fi
+
 # 1) uv present → semantic-capable path (deps + model pulled on demand, then offline).
 if command -v uv >/dev/null 2>&1; then
   case "$SUB" in

@@ -19,8 +19,10 @@ optimizer possible: it tunes this prompt and can roll back.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
+import signal
 import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -80,15 +82,42 @@ def render_prompt(template: str, *, role: "Role", repo: str | None,
     )
 
 
-def run_claude(prompt: str, *, timeout: int = 120) -> str:
-    """Invoke `claude -p` headless. Raises if unavailable or it fails."""
+def run_claude(prompt: str, *, timeout: int = 60) -> str:
+    """Invoke `claude -p` headless. Raises if unavailable, times out, or fails.
+
+    Two safety properties matter here because this is reached from the capture
+    hooks:
+      * Recursion guard — the nested `claude -p` is itself a Claude Code session
+        that would fire engram's Stop/SessionEnd hooks, which call this again.
+        We set ENGRAM_DISABLE_HOOKS=1 in the child env so those nested hooks
+        no-op (see scripts/engram-launch + hookcli.main).
+      * Reaping — the child runs in its own session/process group so that on
+        timeout we can kill it AND any grandchildren, never leaving a `claude`
+        lingering past the hook's budget.
+    """
     if shutil.which("claude") is None:
         raise RuntimeError("`claude` CLI not found")
-    proc = subprocess.run(["claude", "-p", prompt, "--output-format", "text"],
-                          capture_output=True, text=True, timeout=timeout)
+    env = {**os.environ, "ENGRAM_DISABLE_HOOKS": "1"}
+    proc = subprocess.Popen(
+        ["claude", "-p", prompt, "--output-format", "text"],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        env=env, start_new_session=True,
+    )
+    try:
+        out, err = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except Exception:
+            proc.kill()
+        try:
+            proc.communicate(timeout=5)
+        except Exception:
+            pass
+        raise RuntimeError(f"claude -p timed out after {timeout}s")
     if proc.returncode != 0:
-        raise RuntimeError(f"claude -p failed: {proc.stderr[:200]}")
-    return proc.stdout
+        raise RuntimeError(f"claude -p failed: {(err or '')[:200]}")
+    return out
 
 
 def extract_with_prompt(prompt_template: str, transcript: str, *, role: "Role",

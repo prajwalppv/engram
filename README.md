@@ -118,8 +118,9 @@ compaction and abrupt exits.
 - [uv](https://docs.astral.sh/uv/) for the full **semantic** experience. On first
   run, the plugin pulls fastembed + a small embedding model (~160 MB once, from
   PyPI + HuggingFace), then runs fully offline. Nothing is committed to the repo.
-- **No uv? Still works.** The plugin falls back to a committed ~16 MB self-contained
-  binary that gives fast **text** recall with zero setup.
+- **No uv? Still works.** The plugin falls back to a committed self-contained
+  binary (~16 MB on macOS arm64, ~36 MB on Linux x86_64) that gives fast **text**
+  recall with zero setup.
 
 Either way, everything stays on your machine.
 
@@ -127,13 +128,13 @@ Either way, everything stays on your machine.
 The plugin runs via `scripts/engram-launch`, which prefers `uv` (semantic) and
 falls back to the bundled binary (text). Build the binary per platform (ideally CI):
 ```bash
-bash scripts/build_binary.sh      # → bin/<os>_<arch>/engram (~16 MB, PyInstaller)
+bash scripts/build_binary.sh      # → bin/<os>_<arch>/engram (~16–36 MB, PyInstaller)
 ```
 It's lean by design — the heavy embedding deps are pulled on demand via uv, never
 bundled or committed.
 
 ## Install as a Claude Code plugin (the few-click path)
-From a private/internal git repo (recommended for a team):
+From the public marketplace repo (or any git repo, e.g. a private one for a team):
 ```
 /plugin marketplace add prajwalppv/engram
 /plugin install engram@engram

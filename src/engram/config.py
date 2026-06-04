@@ -45,7 +45,9 @@ class Settings(BaseSettings):
     # "claude" = LLM extraction via `claude -p` (best quality, falls back to
     # heuristic if unavailable); "heuristic" = no-LLM distillation.
     summarizer: str = Field(default="claude")
-    summarizer_timeout: int = Field(default=120)
+    # Kept comfortably under the hook timeout (120s) so the summarizer subprocess
+    # is reaped by us, never by the harness killing the hook mid-call.
+    summarizer_timeout: int = Field(default=60)
 
     # --- recall / semantic ---------------------------------------------------
     # Semantic (local embeddings) is the DEFAULT — highest-quality recall. Falls

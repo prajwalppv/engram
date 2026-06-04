@@ -41,29 +41,35 @@ def _store_and_settings():
 
 
 def cmd_recall() -> int:
-    """Print SessionStart additionalContext with what we remember about this repo."""
-    data = _read_hook_input()
-    repo = _repo_of(data.get("cwd"))
+    """Print SessionStart additionalContext with what we remember about this repo.
+
+    The ENTIRE body is guarded: this hook's stdout is a strict contract (only the
+    additionalContext JSON may be emitted), so any failure must produce no stdout
+    and exit 0 rather than risk a partial print + traceback corrupting it.
+    """
     try:
+        data = _read_hook_input()
+        repo = _repo_of(data.get("cwd"))
         from .core import memory
         store, _ = _store_and_settings()
         ents = memory.list_recent(store, repo=repo, limit=6)
         if not ents and repo:
             ents = memory.list_recent(store, limit=4)  # fall back to global recent
+        if not ents:
+            return 0
+        lines = [f"### engram — recalled memory{f' for `{repo}`' if repo else ''}", ""]
+        for e in ents:
+            first = next((ln for ln in (e.body or "").splitlines() if ln.strip()
+                          and not ln.startswith("#") and not ln.startswith("_")), "")
+            lines.append(f"- **{e.title}** ({e.type}) — {first[:160]}")
+        lines.append("")
+        lines.append("_(Local private memory. Call `memory_recall` for more, `memory_save` to remember.)_")
+        ctx = "\n".join(lines)
+        payload = json.dumps({"hookSpecificOutput": {
+            "hookEventName": "SessionStart", "additionalContext": ctx}})
     except Exception:
-        return 0  # never block a session
-    if not ents:
-        return 0
-    lines = [f"### engram — recalled memory{f' for `{repo}`' if repo else ''}", ""]
-    for e in ents:
-        first = next((ln for ln in e.body.splitlines() if ln.strip()
-                      and not ln.startswith("#") and not ln.startswith("_")), "")
-        lines.append(f"- **{e.title}** ({e.type}) — {first[:160]}")
-    lines.append("")
-    lines.append("_(Local private memory. Call `memory_recall` for more, `memory_save` to remember.)_")
-    ctx = "\n".join(lines)
-    print(json.dumps({"hookSpecificOutput": {
-        "hookEventName": "SessionStart", "additionalContext": ctx}}))
+        return 0  # never block a session; emit nothing on failure
+    print(payload)
     return 0
 
 
@@ -119,6 +125,10 @@ def cmd_ingest() -> int:
 
 
 def main() -> None:
+    # Recursion guard (belt-and-suspenders to the launcher check): never let a
+    # nested `claude -p` summarizer run trigger another capture.
+    if os.environ.get("ENGRAM_DISABLE_HOOKS"):
+        raise SystemExit(0)
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     dispatch = {
         "recall": cmd_recall,

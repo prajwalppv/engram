@@ -5,7 +5,27 @@ All notable changes to **engram** are documented here. The format follows
 [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
-- Demo recording (`demo/engram.tape`) and screenshots in the README.
+- Demo recording (`demo/engram.tape`) → `docs/demo.gif` in the README.
+
+## [0.1.8] — 2026-06-04
+### Fixed (pre-submission robustness audit)
+- **Recursion guard (P0).** The capture hooks run the `claude` summarizer; a
+  headless `claude -p` is itself a Claude Code session that would fire engram's
+  hooks again. We now set `ENGRAM_DISABLE_HOOKS=1` in the child env and bail
+  immediately in both the launcher and `hookcli` when it's set — breaking any
+  summarizer→hook→summarizer cascade.
+- **Subprocess reaping + timeout (P0).** `claude -p` now runs in its own process
+  group and is killed (group-wide) on timeout; `summarizer_timeout` lowered to
+  60s (under the 120s hook budget) so the harness never kills the hook mid-call.
+- **Async capture (P0).** `PreCompact` and `SessionEnd` hooks are now `async` (as
+  `Stop` already was) so capture never blocks compaction or session teardown.
+- **Atomic memory writes (P1).** Memory notes are written via temp file + rename,
+  so a hook killed mid-write can't leave a truncated/corrupt node.
+- **SessionStart recall is fully fail-safe (P1).** The entire `recall` path is
+  guarded so a failure emits no stdout (protecting the hook's JSON contract)
+  and exits 0.
+### Notes
+- No behavior change on the happy path; this hardens the failure modes.
 
 ## [0.1.7] — 2026-06-04
 ### Added
@@ -69,7 +89,8 @@ All notable changes to **engram** are documented here. The format follows
   feedback. MIT licensed. Cross-platform self-contained binaries built in CI as
   a no-setup fallback.
 
-[Unreleased]: https://github.com/prajwalppv/engram/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/prajwalppv/engram/compare/v0.1.8...HEAD
+[0.1.8]: https://github.com/prajwalppv/engram/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/prajwalppv/engram/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/prajwalppv/engram/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/prajwalppv/engram/compare/v0.1.4...v0.1.5

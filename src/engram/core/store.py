@@ -5,6 +5,7 @@ a small seam, but there is one impl: the local filesystem.
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Iterable, Protocol, runtime_checkable
 
@@ -37,8 +38,12 @@ class FileSystemBackend:
         return abs_path.read_text(encoding="utf-8")
 
     def write_text(self, abs_path: Path, content: str) -> None:
+        # Atomic: write to a sibling temp file then rename, so a hook killed
+        # mid-write can never leave a truncated/corrupt memory node behind.
         abs_path.parent.mkdir(parents=True, exist_ok=True)
-        abs_path.write_text(content, encoding="utf-8")
+        tmp = abs_path.with_name(f".{abs_path.name}.tmp")
+        tmp.write_text(content, encoding="utf-8")
+        os.replace(tmp, abs_path)
 
     def iter_markdown(self) -> Iterable[Path]:
         return self.root.rglob("*.md")
