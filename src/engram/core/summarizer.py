@@ -70,6 +70,36 @@ def _load_prompt(store: "Store | None") -> str:
     return DEFAULT_EXTRACTION_PROMPT
 
 
+def render_prompt(template: str, *, role: "Role", repo: str | None,
+                  transcript: str, max_chars: int = 24000) -> str:
+    return template.format(
+        role_name=role.name, role_description=role.description,
+        extraction_hint=role.extraction_hint(),
+        node_types=", ".join(role.node_types), repo=repo or "general",
+        transcript=transcript[-max_chars:],
+    )
+
+
+def run_claude(prompt: str, *, timeout: int = 120) -> str:
+    """Invoke `claude -p` headless. Raises if unavailable or it fails."""
+    if shutil.which("claude") is None:
+        raise RuntimeError("`claude` CLI not found")
+    proc = subprocess.run(["claude", "-p", prompt, "--output-format", "text"],
+                          capture_output=True, text=True, timeout=timeout)
+    if proc.returncode != 0:
+        raise RuntimeError(f"claude -p failed: {proc.stderr[:200]}")
+    return proc.stdout
+
+
+def extract_with_prompt(prompt_template: str, transcript: str, *, role: "Role",
+                        repo: str | None, timeout: int = 120) -> list[dict]:
+    """Run extraction with an EXPLICIT prompt (used by the optimizer to score
+    candidate prompts without persisting them)."""
+    out = run_claude(render_prompt(prompt_template, role=role, repo=repo,
+                                   transcript=transcript), timeout=timeout)
+    return _parse_items(out)
+
+
 def _parse_items(text: str) -> list[dict]:
     s, e = text.find("["), text.rfind("]")
     if s < 0 or e < 0 or e < s:
@@ -118,22 +148,9 @@ class ClaudeHeadlessSummarizer:
         return shutil.which("claude") is not None
 
     def summarize(self, transcript_text: str, *, role: "Role", repo: str | None) -> list[dict]:
-        if not self.available():
-            raise RuntimeError("`claude` CLI not found")
-        transcript = transcript_text[-self.max_chars:]
-        prompt = _load_prompt(self.store).format(
-            role_name=role.name, role_description=role.description,
-            extraction_hint=role.extraction_hint(),
-            node_types=", ".join(role.node_types), repo=repo or "general",
-            transcript=transcript,
-        )
-        proc = subprocess.run(
-            ["claude", "-p", prompt, "--output-format", "text"],
-            capture_output=True, text=True, timeout=self.timeout,
-        )
-        if proc.returncode != 0:
-            raise RuntimeError(f"claude -p failed: {proc.stderr[:200]}")
-        return _parse_items(proc.stdout)
+        prompt = render_prompt(_load_prompt(self.store), role=role, repo=repo,
+                               transcript=transcript_text, max_chars=self.max_chars)
+        return _parse_items(run_claude(prompt, timeout=self.timeout))
 
 
 def summarize_session(

@@ -54,6 +54,18 @@ def metrics(store: Store, scored: dict | None = None) -> dict:
 
 
 # ---------------------------------------------------------------- analyze
+def _effective_fraction(store: Store, settings: "Settings") -> float:
+    """Honor the self-tuned prune fraction (written by optimize.tune_prune_params)."""
+    p = store.root / ".state" / "tuned.json"
+    if p.exists():
+        try:
+            return float(json.loads(p.read_text(encoding="utf-8")).get(
+                "prune_max_fraction", settings.prune_max_fraction))
+        except Exception:
+            pass
+    return settings.prune_max_fraction
+
+
 def analyze(store: Store, settings: "Settings") -> dict:
     scored = vigor.score_all(store)
     total = len(scored)
@@ -62,7 +74,7 @@ def analyze(store: Store, settings: "Settings") -> dict:
              if d["ephemeral"] and d["age_days"] >= settings.prune_min_age_days
              and d["used"] == 0 and d["indegree"] == 0]
     stale.sort(key=lambda d: d["vigor"])
-    cap = max(1, int(total * settings.prune_max_fraction))
+    cap = max(1, int(total * _effective_fraction(store, settings)))
     stale = stale[:cap]
 
     groups: dict[str, list] = {}
@@ -201,12 +213,12 @@ def effectiveness(store: Store) -> dict:
                 cycles.append(r)
     deltas = []
     for r in cycles:
-        b, af = r["metrics_before"], r["metrics_after"]
+        b, af = r.get("metrics_before", {}), r.get("metrics_after", {})
         deltas.append({
             "ts": r.get("ts"),
-            "nodes": f'{b["total"]}→{af["total"]}',
-            "ephemeral": f'{b["ephemeral"]}→{af["ephemeral"]}',
-            "avg_vigor": f'{b["avg_vigor"]}→{af["avg_vigor"]}',
+            "nodes": f'{b.get("total", "?")}→{af.get("total", "?")}',
+            "ephemeral": f'{b.get("ephemeral", "?")}→{af.get("ephemeral", "?")}',
+            "avg_vigor": f'{b.get("avg_vigor", "?")}→{af.get("avg_vigor", "?")}',
             "archived": r.get("archived", 0),
         })
     return {
