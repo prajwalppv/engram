@@ -1,0 +1,25 @@
+#!/bin/bash
+# Launcher used by the plugin's .mcp.json and hooks. Prefers the self-contained
+# platform binary (no uv/python needed); falls back to `uv run` for dev/unbuilt
+# platforms; otherwise errors clearly. Usage: engram-launch {mcp|hook} [...]
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+ARCH="$(uname -m)"
+BIN="$ROOT/bin/${OS}_${ARCH}/engram"
+
+SUB="${1:-}"; shift || true
+
+if [ -x "$BIN" ]; then
+  exec "$BIN" "$SUB" "$@"
+fi
+
+if command -v uv >/dev/null 2>&1; then
+  case "$SUB" in
+    mcp)  exec uv run --directory "$ROOT" engram-mcp ;;
+    hook) exec uv run --directory "$ROOT" engram-hook "$@" ;;
+  esac
+fi
+
+echo "engram: no binary at $BIN and uv not installed — run scripts/build_binary.sh or install uv" >&2
+exit 127

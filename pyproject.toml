@@ -15,8 +15,10 @@ dependencies = [
 dev = ["pytest>=8"]
 # Local, offline semantic recall (ONNX, no PyTorch). Optional; falls back to text.
 semantic = ["fastembed>=0.5", "numpy>=1.26"]
+build = ["pyinstaller>=6"]
 
 [project.scripts]
+engram = "engram.cli:main"
 engram-mcp = "engram.server:main"
 engram-hook = "engram.hookcli:main"
 

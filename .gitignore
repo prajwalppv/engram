@@ -7,3 +7,8 @@ __pycache__/
 .DS_Store
 # never commit a developer's local memory store
 /store/
+
+# PyInstaller build artifacts (the built binaries under bin/ ARE committed for distribution)
+/build/
+/dist/
+*.spec

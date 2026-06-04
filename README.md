@@ -29,8 +29,18 @@ selected learnings; it does not exist yet and is never automatic.)
 Working MVP — single-user, local-only. Text recall by default; semantic recall opt-in.
 
 ## Requirements
-- [uv](https://docs.astral.sh/uv/) (the plugin spawns the server via `uv run`)
-- Python 3.13 (uv will fetch it)
+- **Nothing**, if a prebuilt binary for your platform ships in `bin/<os>_<arch>/`
+  (the plugin uses it automatically — no Python, no uv).
+- Otherwise [uv](https://docs.astral.sh/uv/) — the launcher falls back to `uv run`.
+
+### Self-contained binary (drop the uv requirement)
+The plugin runs via `scripts/engram-launch`, which prefers a bundled single-file
+binary and only falls back to `uv`. Build one per platform (ideally in CI):
+```bash
+bash scripts/build_binary.sh      # → bin/<os>_<arch>/engram (~16 MB, PyInstaller)
+```
+Commit the resulting binary so teammates on that platform need zero setup. (The
+binary is the default, text-recall build; semantic recall stays an opt-in uv install.)
 
 ## Install as a Claude Code plugin (the few-click path)
 From a private/internal git repo (recommended for a team):

@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run --directory ${CLAUDE_PLUGIN_ROOT} engram-hook recall",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/engram-launch hook recall",
             "timeout": 20
           }
         ]
@@ -18,8 +18,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run --directory ${CLAUDE_PLUGIN_ROOT} engram-hook ingest",
-            "timeout": 30
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/engram-launch hook ingest",
+            "timeout": 120
           }
         ]
       }
