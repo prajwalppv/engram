@@ -29,6 +29,8 @@ On Monday you make a few decisions while working. A week later — a brand-new
 session — you ask a fuzzy, differently-worded question, and engram recalls the
 right notes by meaning (local embeddings), fully on-device:
 
+![engram in action](docs/demo.gif)
+
 ```text
 🧠 engram — Claude Code that remembers across sessions
 
@@ -52,13 +54,11 @@ right notes by meaning (local embeddings), fully on-device:
 🔒 Everything stayed on this machine. No server, no account, no telemetry.
 ```
 
-Run it yourself (throwaway store, ~15s): `uv run python demo/demo.py`.
-Record an animated version with [VHS](https://github.com/charmbracelet/vhs):
-`vhs demo/engram.tape` → writes `docs/demo.gif`.
+_(The transcript above is the same run, for readers with images off.)_
 
-<!-- After recording, drop the GIF in by uncommenting:
-![engram in action](docs/demo.gif)
--->
+Run it yourself (throwaway store, ~15s): `uv run python demo/demo.py`.
+Re-record the GIF with [VHS](https://github.com/charmbracelet/vhs):
+`vhs demo/engram.tape` → writes `docs/demo.gif`.
 
 ## How it works
 - Memory is a **local knowledge graph** of markdown notes (wikilinks + backlinks),

@@ -12,11 +12,18 @@ import os
 import shutil
 import sys
 import time
+import warnings
 from pathlib import Path
+
+warnings.filterwarnings("ignore")  # keep the demo output (and any GIF) clean
 
 STORE = Path(os.environ.setdefault(
     "ENGRAM_STORE_DIR", "/tmp/engram-demo")).expanduser()
 os.environ.setdefault("ENGRAM_SEARCH_BACKEND", "semantic")
+# Keep the embedding-model cache OUTSIDE the throwaway store, so wiping the store
+# each run doesn't force a re-download (and a recording warmup actually sticks).
+os.environ.setdefault(
+    "FASTEMBED_CACHE_PATH", str(Path.home() / ".cache" / "engram-demo-model"))
 # Keep the recording clean: no HF progress bars / warnings / tokenizer noise.
 os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
 os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
