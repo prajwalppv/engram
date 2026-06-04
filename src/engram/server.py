@@ -11,7 +11,7 @@ from mcp.server.fastmcp import FastMCP
 
 from .config import Settings, load_settings
 from .core import roles as role_engine
-from .core.search_backends import TextSearchBackend
+from .core.search_backends import build_backend
 from .core.store import FileSystemBackend, Store
 from .roles import available_roles
 from .tools import Deps
@@ -23,25 +23,9 @@ from .tools import prune as t_prune
 from .tools import role as t_role
 
 
-def _build_search_backend(settings: Settings, store: Store):
-    if settings.search_backend.lower() == "semantic":
-        import importlib.util
-        missing = [m for m in ("fastembed", "numpy") if importlib.util.find_spec(m) is None]
-        if missing:
-            print(f"[engram] semantic recall needs {', '.join(missing)} "
-                  f"(install the 'semantic' extra); using text recall", file=sys.stderr)
-        else:
-            from .core.search_backends import SemanticSearchBackend
-            return SemanticSearchBackend(
-                store, index_dir=settings.resolved_index_dir(),
-                model_name=settings.embedding_model,
-            )
-    return TextSearchBackend(store)
-
-
 def build_server(settings: Settings) -> FastMCP:
     store = Store(FileSystemBackend(settings.resolved_store()))
-    search_backend = _build_search_backend(settings, store)
+    search_backend = build_backend(settings, store)
 
     mcp = FastMCP(
         name="engram",

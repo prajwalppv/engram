@@ -25,6 +25,10 @@ uv run pyinstaller --onefile --clean --noconfirm --name engram \
   --collect-all anyio \
   --exclude-module mcp.cli \
   --exclude-module typer \
+  --exclude-module fastembed \
+  --exclude-module onnxruntime \
+  --exclude-module numpy \
+  --exclude-module tokenizers \
   scripts/_entry.py
 
 mkdir -p "$OUT"

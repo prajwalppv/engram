@@ -1,6 +1,6 @@
 [project]
 name = "engram"
-version = "0.1.2"
+version = "0.1.3"
 description = "A private, on-device memory layer for Claude Code — persistent, role-aware, graph-structured. Nothing leaves your laptop."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
@@ -9,12 +9,15 @@ dependencies = [
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
     "ruamel.yaml>=0.18",
+    # Local, offline semantic recall (ONNX, no PyTorch). Pulled from PyPI at
+    # install/first-run — never committed. The embedding model is pulled on first
+    # use by fastembed. Together ~160 MB fetched once, then fully offline.
+    "fastembed>=0.5",
+    "numpy>=1.26",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
-# Local, offline semantic recall (ONNX, no PyTorch). Optional; falls back to text.
-semantic = ["fastembed>=0.5", "numpy>=1.26"]
 build = ["pyinstaller>=6"]
 
 [project.scripts]

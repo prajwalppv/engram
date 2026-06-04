@@ -41,7 +41,9 @@ class Settings(BaseSettings):
     summarizer_timeout: int = Field(default=120)
 
     # --- recall / semantic ---------------------------------------------------
-    search_backend: str = Field(default="text")  # "text" | "semantic"
+    # Semantic (local embeddings) is the DEFAULT — highest-quality recall. Falls
+    # back to "text" automatically if fastembed/numpy aren't importable.
+    search_backend: str = Field(default="semantic")  # "semantic" | "text"
     embedding_model: str = Field(default="BAAI/bge-small-en-v1.5")
     similarity_threshold: float = Field(default=0.55)  # recall floor (graph recall)
     recall_limit: int = Field(default=8)

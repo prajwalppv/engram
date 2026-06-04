@@ -1,7 +1,9 @@
 #!/bin/bash
-# Launcher used by the plugin's .mcp.json and hooks. Prefers the self-contained
-# platform binary (no uv/python needed); falls back to `uv run` for dev/unbuilt
-# platforms; otherwise errors clearly. Usage: engram-launch {mcp|hook} [...]
+# Launcher used by the plugin's .mcp.json and hooks. Usage: engram-launch {mcp|hook} [...]
+#
+# Prefers the uv path (pulls fastembed + the embedding model on first run → full
+# SEMANTIC recall, the default), and falls back to the committed self-contained
+# binary (TEXT recall, zero setup) on machines without uv.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -10,10 +12,7 @@ BIN="$ROOT/bin/${OS}_${ARCH}/engram"
 
 SUB="${1:-}"; shift || true
 
-if [ -x "$BIN" ]; then
-  exec "$BIN" "$SUB" "$@"
-fi
-
+# 1) uv present → semantic-capable path (deps + model pulled on demand, then offline).
 if command -v uv >/dev/null 2>&1; then
   case "$SUB" in
     mcp)  exec uv run --directory "$ROOT" engram-mcp ;;
@@ -21,5 +20,10 @@ if command -v uv >/dev/null 2>&1; then
   esac
 fi
 
-echo "engram: no binary at $BIN and uv not installed — run scripts/build_binary.sh or install uv" >&2
+# 2) no uv → lean self-contained binary (text recall, zero setup).
+if [ -x "$BIN" ]; then
+  exec "$BIN" "$SUB" "$@"
+fi
+
+echo "engram: install uv for semantic recall (https://docs.astral.sh/uv/) or run scripts/build_binary.sh" >&2
 exit 127

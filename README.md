@@ -36,21 +36,26 @@ session start and captures the session at the end. Commands: `/engram:recall`,
   role weights and the extraction/recall prompts over time.
 
 ## Status
-Working MVP — single-user, local-only. Text recall by default; semantic recall opt-in.
+Working MVP — single-user, local-only. **Semantic recall on by default** (local
+embeddings); automatic text fallback when embeddings aren't available.
 
 ## Requirements
-- **Nothing**, if a prebuilt binary for your platform ships in `bin/<os>_<arch>/`
-  (the plugin uses it automatically — no Python, no uv).
-- Otherwise [uv](https://docs.astral.sh/uv/) — the launcher falls back to `uv run`.
+- [uv](https://docs.astral.sh/uv/) for the full **semantic** experience. On first
+  run, the plugin pulls fastembed + a small embedding model (~160 MB once, from
+  PyPI + HuggingFace), then runs fully offline. Nothing is committed to the repo.
+- **No uv? Still works.** The plugin falls back to a committed ~16 MB self-contained
+  binary that gives fast **text** recall with zero setup.
 
-### Self-contained binary (drop the uv requirement)
-The plugin runs via `scripts/engram-launch`, which prefers a bundled single-file
-binary and only falls back to `uv`. Build one per platform (ideally in CI):
+Either way, everything stays on your machine.
+
+### Self-contained binary (the no-uv text fallback)
+The plugin runs via `scripts/engram-launch`, which prefers `uv` (semantic) and
+falls back to the bundled binary (text). Build the binary per platform (ideally CI):
 ```bash
 bash scripts/build_binary.sh      # → bin/<os>_<arch>/engram (~16 MB, PyInstaller)
 ```
-Commit the resulting binary so teammates on that platform need zero setup. (The
-binary is the default, text-recall build; semantic recall stays an opt-in uv install.)
+It's lean by design — the heavy embedding deps are pulled on demand via uv, never
+bundled or committed.
 
 ## Install as a Claude Code plugin (the few-click path)
 From a private/internal git repo (recommended for a team):
@@ -73,17 +78,15 @@ Then restart Claude Code. The plugin:
 **Zero-click for a shared repo:** commit a `.claude/settings.json` with
 `extraKnownMarketplaces` + `enabledPlugins` so teammates get it on clone+trust.
 
-## Semantic recall (opt-in)
-Default is fast, dependency-free **text** recall. To enable local embeddings:
-```bash
-uv sync --extra semantic        # adds fastembed (ONNX, no PyTorch)
-export ENGRAM_SEARCH_BACKEND=semantic
-```
-(or set it in the plugin's `.mcp.json` env). Still 100% on-device.
+## Semantic recall (default)
+Semantic recall is **on by default** — local embeddings via fastembed (ONNX, no
+PyTorch). The deps come from PyPI and the model from HuggingFace, **pulled once on
+first use** (~160 MB), then it's fully offline. No cloud, no API. To force plain
+keyword recall instead, set `ENGRAM_SEARCH_BACKEND=text`.
 
 ## Dev
 ```bash
-uv sync --extra dev --extra semantic
+uv sync --extra dev
 uv run pytest -q
 ```
 
@@ -91,7 +94,7 @@ uv run pytest -q
 | Var | Default | Meaning |
 |-----|---------|---------|
 | `ENGRAM_STORE_DIR` | `~/.engram/store` (or `$CLAUDE_PLUGIN_DATA/store`) | Local memory store. |
-| `ENGRAM_SEARCH_BACKEND` | `text` | `text` or `semantic`. |
+| `ENGRAM_SEARCH_BACKEND` | `semantic` | `semantic` (local embeddings) or `text`. |
 | `ENGRAM_ROLE` | `auto` | Pin a role (`swe`/`pm`/`em`) or infer. |
 | `ENGRAM_EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | fastembed model. |
 

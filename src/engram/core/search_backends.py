@@ -30,6 +30,24 @@ def content_hash(title: str, body: str) -> str:
     return hashlib.sha256(f"{title}\n{body}".encode()).hexdigest()
 
 
+def build_backend(settings, store) -> "SearchBackend":
+    """Pick the search backend from settings. Semantic when requested AND its deps
+    are importable; otherwise text. A missing dep degrades gracefully (never crashes).
+    Shared by the MCP server and the SessionEnd hook so indexing stays consistent."""
+    import importlib.util
+    import sys
+    if str(getattr(settings, "search_backend", "text")).lower() == "semantic":
+        missing = [m for m in ("fastembed", "numpy") if importlib.util.find_spec(m) is None]
+        if missing:
+            print(f"[engram] semantic recall needs {', '.join(missing)}; "
+                  f"using text recall", file=sys.stderr)
+        else:
+            return SemanticSearchBackend(
+                store, index_dir=settings.resolved_index_dir(),
+                model_name=settings.embedding_model)
+    return TextSearchBackend(store)
+
+
 def _snippet(body: str, term: str, width: int = 140) -> str | None:
     i = body.lower().find(term.lower())
     if i < 0:

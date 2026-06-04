@@ -70,11 +70,13 @@ def cmd_ingest() -> int:
         return 0
     try:
         from .core import capture, ingest
+        from .core.search_backends import build_backend
         store, settings = _store_and_settings()
+        backend = build_backend(settings, store)  # so new memories are indexed for recall
         text = ingest.transcript_text(tpath)
         results = capture.capture_session(
             store, settings, transcript_text=text, repo=repo,
-            session_id=data.get("session_id"),
+            session_id=data.get("session_id"), search_backend=backend,
         )
         print(f"[engram] captured {len(results)} memory item(s) for "
               f"{repo or 'general'}", file=sys.stderr)
