@@ -18,8 +18,8 @@ laptop. No server, no account, no auth, no telemetry — **zero bytes leave your
 ```
 Restart Claude Code. That's it — on a platform with a prebuilt binary you need **nothing
 else installed** (no Python, no uv). Then just work: engram recalls your repo's memory at
-session start and captures the session at the end. Commands: `/engram:recall`,
-`/engram:remember`, `/engram:status`, `/engram:prune`, `/engram:optimize`.
+session start and captures as you work. Commands: `/engram:recall`,
+`/engram:remember`, `/engram:howto`, `/engram:status`, `/engram:prune`, `/engram:optimize`.
 
 > A future, opt-in, sanitized *export* could let teammates share selected learnings; it
 > does not exist yet and is never automatic.
@@ -169,10 +169,18 @@ flowchart TD
 ```
 
 ## Status
-Working MVP — single-user, local-only. **Semantic recall on by default** (local
-embeddings); automatic text fallback when embeddings aren't available. **Durable
-multi-trigger capture** (Stop / PreCompact / SessionEnd) so memory survives
-compaction and abrupt exits.
+Working, single-user, local-only — with a real memory model:
+- **Multi-horizon memory** — working · episodic · semantic · procedural · preference,
+  each with its own capture, recall, and decay (see *Memory horizons & scope*).
+- **Always-on preferences** — learned standing rules, delivered every session
+  (hybrid: a managed `CLAUDE.md` block + `SessionStart` injection).
+- **Scope ladder + precedence** (`global → role → area → repo → session`) so memory
+  applies where it should and a specific rule overrides a general one.
+- **Semantic recall on by default** (local embeddings); automatic text fallback.
+- **Durable multi-trigger capture** (Stop / PreCompact / SessionEnd) — survives
+  compaction and abrupt exits.
+- **One stable store** at `~/.engram/store`, shared across every editor/host, with
+  safe auto-migration on update.
 
 ## Requirements
 - [uv](https://docs.astral.sh/uv/) for the full **semantic** experience. On first
@@ -272,5 +280,8 @@ uv run pytest -q
 - `core/` — vendor-neutral, no MCP imports.
 - `roles/` — the Profile seam applied to *people*; discoverable via the
   `engram.roles` entry-point group.
-- `core/search_backends.py` — `Text` (default) + lazy `Semantic` (fastembed).
-- A dormant `scope`/`export` seam so future opt-in team sharing is a flip, not a rewrite.
+- `core/search_backends.py` — lazy `Semantic` (fastembed, **default**) + `Text` fallback.
+- `core/scoping.py` + the `horizon` field — the memory-model seam (**horizon × scope**),
+  so new horizons or scope levels drop in without touching the core.
+- A dormant `visibility`/`export` seam (separate from the live `scope` ladder) so
+  future opt-in team sharing is a flip, not a rewrite.

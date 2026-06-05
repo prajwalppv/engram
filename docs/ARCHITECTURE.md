@@ -63,7 +63,77 @@ down. So engram also captures:
 
 ---
 
-## 2. The high-water mark (incremental, idempotent)
+## 2. Memory horizons & scope
+
+engram models memory along **two orthogonal axes**. Keeping them separate is what
+keeps recall sharp instead of a noisy everything-bucket.
+
+**Horizon — the *kind* of memory.** Each has its own capture, recall, and decay:
+
+| Horizon | Holds | Captured | Recalled | Decay / pruning |
+|---|---|---|---|---|
+| `working` | the current task's "where was I" | each capture, per `session_id` | injected **only on resume** | TTL'd (`working_ttl_hours`) — deadwood |
+| `episodic` | what happened — sessions, incidents | Stop / PreCompact / SessionEnd | semantic, by relevance | consolidated into digests |
+| `semantic` | durable facts — decisions, gotchas, conventions | summarizer / explicit | semantic, by relevance | vigor-scored |
+| `procedural` | runbooks — "how we do X" | `/engram:howto` or detected step-lists | semantic, by relevance | durable; **supersede-with-history** |
+| `preference` | standing rules about the user | auto-learned from standing statements | **always-on**, every session | **lifeline** — never auto-pruned |
+
+**Scope — *where* it applies:** `global → role → area → repo → session` (broad →
+narrow). Recall is **applicability-filtered** to the current context, so one repo's
+conventions never leak into another; an *unknown* context dimension never excludes —
+only a mismatch on a *known* one does.
+
+**Precedence — most-specific-wins.** When memories overlap, the narrower scope
+outranks the broader (a repo rule beats a global one). A memory may also declare
+`supersedes:` to retire ones it replaces, dropping them from recall + the always-on
+layer.
+
+### The always-on layer (preferences)
+
+Most memory is *retrieved* on relevance; **preferences** must apply to *every*
+session, so they're delivered by a **hybrid** mechanism (persistence + immediacy):
+
+- **Persistent** — a managed block in `CLAUDE.md` (engram only rewrites content
+  between its own markers; the rest of the file is untouched). Defaults to the
+  project `./CLAUDE.md` (`claude_md_path` overrides).
+- **Immediate** — the same preferences are injected at `SessionStart`, so a
+  freshly-learned rule applies right away.
+
+Preferences are **auto-learned** (`detect_preferences`) from standing statements
+("from now on…", "always…", "I prefer…"), are pruning **lifelines**, and are
+reviewable/removable via `/engram:status` → `memory_forget` (one-tap, recoverable).
+
+### Layered recall at SessionStart
+
+```mermaid
+flowchart TD
+    CTX["current context<br/>repo · role · area · session"]
+    subgraph BUDGET["SessionStart memory budget"]
+        direction TB
+        ALW["always-on<br/>preferences + global guidance"]
+        RET["retrieved<br/>semantic/episodic facts that APPLY to context"]
+        WRK["working<br/>'where was I' — only on resume"]
+    end
+    CTX --> ALW
+    CTX --> RET
+    CTX --> WRK
+    ALW --> OUT[["CLAUDE.md managed block + additionalContext"]]
+    RET --> OUT
+    WRK --> OUT
+    OUT --> SESS["the session"]
+
+    classDef a fill:#0f172a,stroke:#34d399,color:#e5e7eb;
+    classDef b fill:#111827,stroke:#fbbf24,color:#e5e7eb;
+    class ALW,RET,WRK a;
+    class CTX,OUT,SESS b;
+```
+
+Pruning is **horizon-aware**: working is TTL'd, episodic consolidated, semantic
+vigor-scored, procedural superseded-not-deleted, preferences are lifelines.
+
+---
+
+## 3. The high-water mark (incremental, idempotent)
 
 All three capture triggers funnel through `capture_delta()`, which reads the live
 transcript, skips everything already captured, and processes only the new tail.
@@ -102,7 +172,7 @@ transcript), it is merged, never duplicated.
 
 ---
 
-## 3. Components & data flow
+## 4. Components & data flow
 
 Two adapters (hooks + MCP) over one core over one local store. The core has **no**
 MCP or vendor imports — every external concern is a swappable seam.
@@ -117,13 +187,14 @@ flowchart LR
     subgraph Plugin["engram plugin (on-device)"]
         direction TB
         HK["hookcli<br/>recall · capture · precompact · ingest"]
-        SRV["MCP server<br/>20 tools (stdio)"]
+        SRV["MCP server<br/>memory tools (stdio)"]
         subgraph Core["core/ (vendor-neutral)"]
-            MEM["memory · graph"]
+            MEM["memory · graph · scoping"]
+            HOR["horizons<br/>preferences · working · migrate"]
             CAP["capture · checkpoint"]
             SUMM["summarizer (seam)"]
             SB["search_backends (seam)"]
-            PR["prune (bonsai) · vigor"]
+            PR["prune (bonsai, horizon-aware) · vigor"]
             OPT["optimize · feedback · evalset"]
             ROL["roles (Profile seam)"]
         end
@@ -161,7 +232,7 @@ There is no network/server/auth code in engram at all.
 
 ---
 
-## 4. Self-improvement loop
+## 5. Self-improvement loop
 Captured memory is not static. A feedback signal (was a recalled memory used,
 edited, or rejected?) tunes the inferred role weights and the extraction prompt,
 while **bonsai pruning** consolidates stale notes and self-tunes its own
