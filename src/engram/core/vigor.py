@@ -28,6 +28,14 @@ TYPE_DURABILITY = {
 EPHEMERAL_TYPES = {"SessionSummary"}
 HALF_LIFE_DAYS = 30.0
 
+# Per-horizon recency half-life (days): how fast a memory's recency signal decays.
+# Working scratch fades in a day; preferences effectively never. This is what makes
+# pruning horizon-aware — durable horizons keep their vigor far longer.
+HORIZON_HALFLIFE = {
+    "working": 1.0, "episodic": 21.0, "semantic": 45.0,
+    "procedural": 120.0, "preference": 3650.0,
+}
+
 
 def feedback_counts(store: Store) -> dict[str, dict[str, int]]:
     """Per-memory-id usage counts from the feedback log: {id: {recall, used}}."""
@@ -76,7 +84,8 @@ def _age_days(created: str | None, today: datetime.date) -> int:
 def score(entry: MemoryEntry, *, used: int, recall: int, indeg: int,
           today: datetime.date) -> float:
     age = _age_days(entry.frontmatter.get("created"), today)
-    recency = math.exp(-age / HALF_LIFE_DAYS)
+    half_life = HORIZON_HALFLIFE.get(entry.horizon, HALF_LIFE_DAYS)
+    recency = math.exp(-age / half_life)
     durability = TYPE_DURABILITY.get(entry.type, 1.0)
     return (2.0 * used + 0.5 * recall
             + 1.5 * math.log1p(max(indeg, 0))
@@ -100,6 +109,7 @@ def score_all(store: Store, today: datetime.date | None = None) -> dict[str, dic
             "vigor": round(score(ent, used=used, recall=recall, indeg=ind, today=today), 3),
             "used": used, "recall": recall, "indegree": ind,
             "age_days": _age_days(ent.frontmatter.get("created"), today),
+            "horizon": ent.horizon,
             "ephemeral": ent.type in EPHEMERAL_TYPES,
         }
     return out

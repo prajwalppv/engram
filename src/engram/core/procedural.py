@@ -25,10 +25,13 @@ _MIN_STEPS = 2
 
 _VERBS = (r"deploy|releas\w*|set ?up|build|run|configure|install|reproduce|"
           r"provision|publish|migrat\w*|roll ?back|test|bootstrap|onboard")
+# Searched ANYWHERE in a line (a runbook intro often follows other text on the same
+# line). To stay precise we additionally require the intro to end with ":" OR be
+# immediately followed by step lines.
 _LEADIN = re.compile(
-    rf"(?i)^\s*(here'?s how (?:we|i|you)\b.*|how (?:we|to) (?:{_VERBS})\b.*|"
-    rf"the (?:steps|process)\s+(?:to|for)\b.*|to (?:{_VERBS})\b.*|"
-    rf"runbook\b.*|workflow\b.*|the runbook (?:is|for)\b.*)$")
+    rf"(?i)(here'?s how (?:we|i|you)\b|how (?:we|to) (?:{_VERBS})\b|"
+    rf"the (?:steps|process|runbook)\s+(?:to|for|is)\b|to (?:{_VERBS})\b|"
+    rf"runbook\b|workflow\b)")
 _STEP = re.compile(r"^\s*(?:\d+[.)]|[-*•])\s+\S")
 _USER_TURN_RE = re.compile(r"(?:^|\n)user:\s*(.*?)(?=\n(?:assistant|user):|\Z)",
                            re.I | re.S)
@@ -46,12 +49,18 @@ def detect(transcript_text: str) -> list[dict]:
         lines = turn.splitlines()
         i = 0
         while i < len(lines) and len(out) < _MAX_PER_SESSION:
-            m = _LEADIN.match(lines[i].strip())
-            if not m:
+            line = lines[i]
+            m = _LEADIN.search(line)
+            # index of the next non-blank line (the first candidate step)
+            k = i + 1
+            while k < len(lines) and not lines[k].strip():
+                k += 1
+            next_is_step = k < len(lines) and bool(_STEP.match(lines[k]))
+            if not (m and (line.rstrip().endswith(":") or next_is_step)):
                 i += 1
                 continue
-            # gather contiguous step lines (allowing blank lines between)
-            steps, j, blanks = [], i + 1, 0
+            # gather contiguous step lines (tolerating a single blank between)
+            steps, j, blanks = [], k, 0
             while j < len(lines):
                 ln = lines[j]
                 if not ln.strip():
@@ -67,7 +76,7 @@ def detect(transcript_text: str) -> list[dict]:
                     continue
                 break
             if len(steps) >= _MIN_STEPS:
-                lead = lines[i].strip()
+                lead = line[m.start():].strip()  # drop any preface before the intro
                 out.append({"title": _title(lead),
                             "body": lead.rstrip(":") + ":\n" + "\n".join(steps)})
                 i = j

@@ -85,6 +85,10 @@ def cmd_recall() -> int:
         # this exact session_id). A brand-new session has none, so nothing shows.
         if getattr(settings, "working_memory", True):
             from .core import working
+            try:  # self-prune stale working snapshots (per-horizon TTL, cheap)
+                working.prune_expired(store, settings.working_ttl_hours)
+            except Exception:
+                pass
             wstate = working.load(store, data.get("session_id"))
             if working.is_fresh(wstate, settings.working_ttl_hours) and wstate.get("summary"):
                 sections.append("### engram — resuming where you left off")

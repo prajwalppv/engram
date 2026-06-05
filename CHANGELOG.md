@@ -5,7 +5,30 @@ All notable changes to **engram** are documented here. The format follows
 [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
-- Multi-horizon memory roadmap Phases 2–5 (scope ladder, procedural, working memory).
+- Team sharing (opt-in, redacted) over the dormant `visibility` axis.
+
+## [0.3.0] — 2026-06-05
+### Added — memory horizons, Phases 2–5
+- **Scope ladder + precedence (P2).** Every memory has a `scope` —
+  `global → role → area → repo → session`. Recall and the always-on layer are
+  applicability-filtered, so one repo/role/area's memory never leaks into another.
+  Precedence is most-specific-wins; a memory can `supersede` ones it replaces
+  (retiring them from recall). The dormant export concept moved to a separate
+  `visibility` field (private | team), no longer conflated with scope. New
+  `core/scoping.py`; `area` config; legacy notes read correctly (no migration).
+- **Procedural memory (P3).** Runbooks / "how we do X" — high-precision
+  auto-capture (a process lead-in + ≥2 steps, even mid-line), durable, never
+  auto-pruned, **supersede-with-history** on update. New `/engram:howto` skill.
+- **Working memory (P4).** Per-session "where was I" as lightweight JSON (kept out
+  of the knowledge graph/index), refreshed every tick, injected at SessionStart
+  only when **resuming** a recent session, TTL-bounded.
+- **Per-horizon pruning (P5).** Bonsai is now horizon-aware: per-horizon recency
+  half-life (working ~1d … preferences ~never), working-memory TTL cleanup wired
+  into both the prune cycle and the recall lifecycle, and metrics + `engram_info`
+  broken down by horizon.
+### Notes
+- Backward compatible: existing memories default to `semantic`/derived scope.
+  +25 tests since 0.2.0 (76 total).
 
 ## [0.2.0] — 2026-06-05
 ### Added — memory horizons, Phase 1: preferences / always-on layer
@@ -107,7 +130,8 @@ All notable changes to **engram** are documented here. The format follows
   feedback. MIT licensed. Cross-platform self-contained binaries built in CI as
   a no-setup fallback.
 
-[Unreleased]: https://github.com/prajwalppv/engram/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/prajwalppv/engram/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/prajwalppv/engram/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/prajwalppv/engram/compare/v0.1.8...v0.2.0
 [0.1.8]: https://github.com/prajwalppv/engram/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/prajwalppv/engram/compare/v0.1.6...v0.1.7

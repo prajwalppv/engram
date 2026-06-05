@@ -36,6 +36,15 @@ def test_detect_ignores_assistant_turns():
     assert procedural.detect(text) == []
 
 
+def test_detect_leadin_midline_drops_preface():
+    # the runbook intro can follow other text on the same line (real e2e case)
+    text = ("user: From now on always run tests. Here's how we deploy the api:\n"
+            "1. migrate\n2. push\n\nassistant: ok")
+    procs = procedural.detect(text)
+    assert len(procs) == 1 and "deploy the api" in procs[0]["title"].lower()
+    assert "from now on" not in procs[0]["title"].lower()  # preface dropped
+
+
 # ---------------------------------------------------------------- capture
 def test_capture_stores_repo_scoped_procedure_and_dedupes(store, swe, text_backend):
     saved = procedural.capture_from_session(store, swe, _RUNBOOK, repo="svc",

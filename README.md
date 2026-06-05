@@ -114,6 +114,29 @@ It learns them **automatically** when you state a standing rule ("from now on…
 (never auto-removed). Review and remove them anytime with `/engram:status`
 (→ `memory_forget`). One-tap undo; fully recoverable.
 
+## Memory horizons & scope
+engram models memory along two orthogonal axes — which is what keeps recall sharp
+instead of a noisy everything-bucket:
+
+**Horizon — the *kind* of memory** (each with its own capture, recall, and decay):
+
+| Horizon | Holds | Lifetime |
+|---|---|---|
+| **working** | the current task's "where was I" | hours — TTL'd; injected only on **resume** |
+| **episodic** | what happened (sessions, incidents) | weeks — consolidated by bonsai |
+| **semantic** | durable facts (decisions, gotchas, conventions) | long — vigor-scored |
+| **procedural** | runbooks / "how we do X" | long — durable, **supersede-with-history** |
+| **preference** | standing rules about you | ~permanent — **lifeline**, always-on |
+
+**Scope — *where* it applies:** `global → role → area → repo → session`. Recall is
+applicability-filtered, so one repo's conventions never leak into another, and a
+preference can be global ("always use uv") or repo-specific. Precedence is
+**most-specific-wins**, and a memory can `supersede` ones it replaces. Working
+scratch decays in a day; preferences effectively never — pruning is horizon-aware.
+
+Procedural runbooks are auto-captured when you spell out a process with steps (or
+save one with `/engram:howto`); working memory needs no setup.
+
 ## Architecture
 Memory is captured at multiple points in the session lifecycle and recalled at the
 start of the next one — all on-device. ([full diagrams + component view →](docs/ARCHITECTURE.md))
@@ -216,6 +239,10 @@ uv run pytest -q
 | `ENGRAM_DETECT_PREFERENCES` | `true` | Auto-learn standing preferences from your sessions. |
 | `ENGRAM_MANAGE_CLAUDE_MD` | `true` | Maintain engram's managed preferences block in `CLAUDE.md`. |
 | `ENGRAM_CLAUDE_MD_PATH` | project `./CLAUDE.md` | Where the managed block is written (set to `~/.claude/CLAUDE.md` for truly global). |
+| `ENGRAM_DETECT_PROCEDURES` | `true` | Auto-capture runbooks (procedural memory) from spelled-out step lists. |
+| `ENGRAM_WORKING_MEMORY` | `true` | Track per-session "where was I" and inject it on resume. |
+| `ENGRAM_WORKING_TTL_HOURS` | `18` | Resume window for working memory; older snapshots are pruned. |
+| `ENGRAM_AREA` | (unset) | Optional cross-repo domain (e.g. `python`) for the scope ladder. |
 
 ## Design seams
 - `core/` — vendor-neutral, no MCP imports.

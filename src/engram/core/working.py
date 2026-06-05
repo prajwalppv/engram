@@ -108,3 +108,20 @@ def prune_expired(store: "Store", ttl_hours: float) -> int:
 def count(store: "Store") -> int:
     root = store.root / _DIR_REL
     return sum(1 for _ in root.glob("*.json")) if root.exists() else 0
+
+
+def expired_count(store: "Store", ttl_hours: float) -> int:
+    """How many snapshots WOULD be pruned (for dry-run reporting; no deletion)."""
+    root = store.root / _DIR_REL
+    if not root.exists():
+        return 0
+    n = 0
+    for p in root.glob("*.json"):
+        try:
+            state = json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            n += 1
+            continue
+        if age_hours(state) > ttl_hours:
+            n += 1
+    return n

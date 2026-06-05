@@ -20,7 +20,7 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from . import memory, vigor
+from . import memory, vigor, working
 from . import roles as role_engine
 from .store import Store
 
@@ -37,19 +37,22 @@ def metrics(store: Store, scored: dict | None = None) -> dict:
     scored = scored if scored is not None else vigor.score_all(store)
     total = len(scored)
     by_type: dict[str, int] = {}
+    by_horizon: dict[str, int] = {}
     ephemeral = orphans = 0
     vig_sum = 0.0
     for d in scored.values():
         e = d["entry"]
         by_type[e.type] = by_type.get(e.type, 0) + 1
+        by_horizon[e.horizon] = by_horizon.get(e.horizon, 0) + 1
         if d["ephemeral"]:
             ephemeral += 1
         if d["indegree"] == 0 and not e.links:
             orphans += 1
         vig_sum += d["vigor"]
     return {
-        "total": total, "by_type": by_type, "ephemeral": ephemeral,
-        "orphans": orphans, "avg_vigor": round(vig_sum / total, 3) if total else 0.0,
+        "total": total, "by_type": by_type, "by_horizon": by_horizon,
+        "ephemeral": ephemeral, "orphans": orphans,
+        "avg_vigor": round(vig_sum / total, 3) if total else 0.0,
     }
 
 
@@ -127,8 +130,16 @@ def prune(store: Store, settings: "Settings",
           search_backend: "SearchBackend | None" = None, *,
           dry_run: bool = True) -> dict:
     a = analyze(store, settings)
-    if dry_run or not a["plan"]:
-        return {**a, "dry_run": True, "applied": False}
+    working_ttl = getattr(settings, "working_ttl_hours", 18)
+    if dry_run:
+        return {**a, "dry_run": True, "applied": False,
+                "working_expirable": working.expired_count(store, working_ttl)}
+    # Apply: per-horizon working-memory TTL cleanup runs on every apply, even when
+    # there's no note-consolidation plan.
+    working_pruned = working.prune_expired(store, working_ttl)
+    if not a["plan"]:
+        return {**a, "dry_run": False, "applied": True, "archived": 0,
+                "consolidated": [], "working_pruned": working_pruned}
 
     role = role_engine.current_role(store, settings.role)
     stamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
@@ -168,6 +179,7 @@ def prune(store: Store, settings: "Settings",
         "dry_run": False, "applied": True,
         "metrics_before": a["metrics_before"], "metrics_after": after,
         "archived": archived, "consolidated": consolidated,
+        "working_pruned": working_pruned,
         "archive_stamp": stamp,
     }
     _log_history(store, {k: report[k] for k in
