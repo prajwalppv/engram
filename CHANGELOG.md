@@ -7,6 +7,18 @@ All notable changes to **engram** are documented here. The format follows
 ## [Unreleased]
 - Team sharing (opt-in, redacted) over the dormant `visibility` axis.
 
+## [0.3.1] — 2026-06-05
+### Fixed
+- **Unified, stable store (memory no longer fragments across hosts).** The store
+  defaulted to `$CLAUDE_PLUGIN_DATA/store`, which resolves to a *different*
+  directory per install identity and per host (e.g. `engram-engram` in one editor
+  vs `engram-inline` in Claude Desktop) — so the same user ended up with multiple
+  disconnected memories and preferences seeded in one weren't visible in another.
+  The store now defaults to a single per-user path, `~/.engram/store`, shared
+  across every editor/host/session and surviving updates/reinstalls. `.mcp.json`
+  no longer pins `ENGRAM_STORE_DIR`; override it explicitly if you want a custom
+  location. Existing stores can be merged into `~/.engram/store`.
+
 ## [0.3.0] — 2026-06-05
 ### Added — memory horizons, Phases 2–5
 - **Scope ladder + precedence (P2).** Every memory has a `scope` —

@@ -205,8 +205,9 @@ Or from this local checkout, to try it now:
 /plugin install engram@engram
 ```
 Then restart Claude Code. The plugin:
-- spawns the local `engram-mcp` server (stdio) over a per-user store at
-  `${CLAUDE_PLUGIN_DATA}/store`;
+- spawns the local `engram-mcp` server (stdio) over a single, stable per-user
+  store at `~/.engram/store` (shared across every editor/host, so your memory is
+  never fragmented);
 - adds lifecycle hooks that recall memory at **SessionStart** and capture it
   incrementally at **Stop** / **PreCompact** / **SessionEnd** (durable across
   compaction and abrupt exits);
@@ -230,7 +231,7 @@ uv run pytest -q
 ## Configuration (env, prefix `ENGRAM_`)
 | Var | Default | Meaning |
 |-----|---------|---------|
-| `ENGRAM_STORE_DIR` | `~/.engram/store` (or `$CLAUDE_PLUGIN_DATA/store`) | Local memory store. |
+| `ENGRAM_STORE_DIR` | `~/.engram/store` | Local memory store. |
 | `ENGRAM_SEARCH_BACKEND` | `semantic` | `semantic` (local embeddings) or `text`. |
 | `ENGRAM_ROLE` | `auto` | Pin a role (`swe`/`pm`/`em`) or infer. |
 | `ENGRAM_EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | fastembed model. |

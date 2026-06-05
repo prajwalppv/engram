@@ -4,7 +4,6 @@ There is intentionally NO network/server/auth config — engram is on-device onl
 """
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 from pydantic import Field
@@ -12,10 +11,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def _default_store() -> Path:
-    # Prefer the Claude Code plugin data dir (survives plugin updates) when run
-    # as a plugin; otherwise a per-user dir. Always local.
-    pd = os.environ.get("CLAUDE_PLUGIN_DATA")
-    return (Path(pd) / "store") if pd else (Path.home() / ".engram" / "store")
+    # ONE stable, per-user store — shared across every editor/host/session and
+    # surviving plugin updates and reinstalls. Deliberately NOT under
+    # $CLAUDE_PLUGIN_DATA: that path differs per install identity and per host
+    # (e.g. "engram-engram" vs "engram-inline"), which would FRAGMENT a user's
+    # memory into disconnected stores. Override with ENGRAM_STORE_DIR.
+    return Path.home() / ".engram" / "store"
 
 
 class Settings(BaseSettings):

@@ -4,7 +4,6 @@
       "command": "bash",
       "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/engram-launch", "mcp"],
       "env": {
-        "ENGRAM_STORE_DIR": "${CLAUDE_PLUGIN_DATA}/store",
         "ENGRAM_TRANSPORT": "stdio"
       }
     }
