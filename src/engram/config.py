@@ -44,6 +44,13 @@ class Settings(BaseSettings):
     # --- summarization -------------------------------------------------------
     # "claude" = LLM extraction via `claude -p` (best quality, falls back to
     # heuristic if unavailable); "heuristic" = no-LLM distillation.
+    # --- preferences / always-on layer (Phase 1 horizons) -------------------
+    # Auto-detect standing preferences ("always use uv", "I prefer terse…") from
+    # sessions and deliver them every session via the hybrid always-on layer.
+    detect_preferences: bool = Field(default=True)
+    manage_claude_md: bool = Field(default=True)     # write the managed CLAUDE.md block
+    claude_md_path: Path | None = Field(default=None)  # override; else <cwd>/CLAUDE.md
+
     summarizer: str = Field(default="claude")
     # Kept comfortably under the hook timeout (120s) so the summarizer subprocess
     # is reaped by us, never by the harness killing the hook mid-call.

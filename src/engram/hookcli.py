@@ -40,8 +40,16 @@ def _store_and_settings():
     return Store(FileSystemBackend(s.resolved_store())), s
 
 
+def _first_body_line(body: str) -> str:
+    # Skip the heading (#), the dated stamp (**…**), and underscore-meta (_…_).
+    return next((ln.strip() for ln in (body or "").splitlines() if ln.strip()
+                 and not ln.startswith(("#", "_", "**"))), "")
+
+
 def cmd_recall() -> int:
-    """Print SessionStart additionalContext with what we remember about this repo.
+    """Print SessionStart additionalContext: the always-on layer (your standing
+    preferences, so they apply THIS session) + memory recalled for this repo. Also
+    refreshes the persistent managed block in CLAUDE.md (the hybrid other half).
 
     The ENTIRE body is guarded: this hook's stdout is a strict contract (only the
     additionalContext JSON may be emitted), so any failure must produce no stdout
@@ -49,24 +57,42 @@ def cmd_recall() -> int:
     """
     try:
         data = _read_hook_input()
-        repo = _repo_of(data.get("cwd"))
-        from .core import memory
-        store, _ = _store_and_settings()
+        cwd = data.get("cwd")
+        repo = _repo_of(cwd)
+        from .core import memory, preferences
+        store, settings = _store_and_settings()
+
+        prefs = preferences.list_preferences(store)
+        # Persistent half of the hybrid layer: refresh the managed CLAUDE.md block.
+        if getattr(settings, "manage_claude_md", True):
+            target = settings.claude_md_path or (Path(cwd) / "CLAUDE.md" if cwd else None)
+            if target:
+                try:
+                    preferences.sync_claude_md(store, str(target))
+                except Exception:
+                    pass
+
         ents = memory.list_recent(store, repo=repo, limit=6)
         if not ents and repo:
             ents = memory.list_recent(store, limit=4)  # fall back to global recent
-        if not ents:
+
+        sections: list[str] = []
+        if prefs:  # always-on: applies immediately this session
+            sections.append("### engram — your preferences")
+            for e in prefs[:8]:
+                sections.append(f"- {_first_body_line(e.body) or e.title}")
+            sections.append("")
+        if ents:
+            sections.append(f"### engram — recalled memory{f' for `{repo}`' if repo else ''}")
+            for e in ents:
+                sections.append(f"- **{e.title}** ({e.type}) — {_first_body_line(e.body)[:160]}")
+            sections.append("")
+        if not sections:
             return 0
-        lines = [f"### engram — recalled memory{f' for `{repo}`' if repo else ''}", ""]
-        for e in ents:
-            first = next((ln for ln in (e.body or "").splitlines() if ln.strip()
-                          and not ln.startswith("#") and not ln.startswith("_")), "")
-            lines.append(f"- **{e.title}** ({e.type}) — {first[:160]}")
-        lines.append("")
-        lines.append("_(Local private memory. Call `memory_recall` for more, `memory_save` to remember.)_")
-        ctx = "\n".join(lines)
+        sections.append("_(Local private memory. `memory_recall` for more, "
+                        "`memory_save` to remember, `/engram:status` to manage preferences.)_")
         payload = json.dumps({"hookSpecificOutput": {
-            "hookEventName": "SessionStart", "additionalContext": ctx}})
+            "hookEventName": "SessionStart", "additionalContext": "\n".join(sections)}})
     except Exception:
         return 0  # never block a session; emit nothing on failure
     print(payload)
@@ -81,12 +107,13 @@ def _capture(*, force: bool, label: str) -> int:
     it waits for ``capture_every_turns`` new user turns (the throttled Stop path).
     """
     data = _read_hook_input()
-    repo = _repo_of(data.get("cwd"))
+    cwd = data.get("cwd")
+    repo = _repo_of(cwd)
     tpath = data.get("transcript_path")
     if not tpath or not os.path.exists(tpath):
         return 0
     try:
-        from .core import capture
+        from .core import capture, preferences
         from .core.search_backends import build_backend
         store, settings = _store_and_settings()
         backend = build_backend(settings, store)  # keep new memories indexed for recall
@@ -95,6 +122,14 @@ def _capture(*, force: bool, label: str) -> int:
             session_id=data.get("session_id"), search_backend=backend,
             force=force, min_turns=settings.capture_every_turns,
         )
+        # Refresh the persistent CLAUDE.md block if a new preference was captured.
+        if getattr(settings, "manage_claude_md", True):
+            target = settings.claude_md_path or (Path(cwd) / "CLAUDE.md" if cwd else None)
+            if target:
+                try:
+                    preferences.sync_claude_md(store, str(target))
+                except Exception:
+                    pass
         if results:
             print(f"[engram] {label}: captured {len(results)} memory item(s) for "
                   f"{repo or 'general'}", file=sys.stderr)

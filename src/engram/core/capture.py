@@ -31,9 +31,17 @@ def capture_session(
     # Update the inferred role from this session, then extract memory with it.
     role_engine.update_from_session(store, transcript_text)
     role = role_engine.current_role(store, settings.role)
+    results: list = []
+    # Always-on horizon: auto-capture any standing preferences the user stated.
+    if getattr(settings, "detect_preferences", True):
+        try:
+            from . import preferences
+            results += preferences.capture_from_session(
+                store, role, transcript_text, search_backend=search_backend)
+        except Exception:
+            pass
     items = summarizer.summarize_session(
         store, settings, transcript_text, role=role, repo=repo)
-    results = []
     for it in items:
         res = memory.save(
             store, role, type_=it["type"], title=it["title"], body=it["body"],

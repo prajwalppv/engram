@@ -14,7 +14,11 @@ class MemoryEntry(BaseModel):
     type: str
     title: str
     body: str = ""
-    scope: str = "private"        # DORMANT export seam: private | team | repo
+    # horizon = the KIND of memory: working | episodic | procedural | semantic |
+    # preference. Orthogonal to `type` (which is the fine-grained category within
+    # a horizon). Defaults to "semantic" for backward compatibility.
+    horizon: str = "semantic"
+    scope: str = "private"        # session | repo | area | role | global (export seam)
     repo: str | None = None
     role: str | None = None       # role (or blend) at capture time
     tags: list[str] = Field(default_factory=list)

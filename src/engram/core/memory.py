@@ -44,12 +44,16 @@ def _read_entry(store: Store, path: Path) -> MemoryEntry:
             if tgt:
                 links.append(tgt)
     tags = meta.get("tags") or []
+    type_str = str(meta.get("type") or folder or "Memory")
+    default_horizon = {"SessionSummary": "episodic", "SessionDigest": "episodic",
+                       "Preference": "preference"}.get(type_str, "semantic")
     return MemoryEntry(
         id=str(meta.get("id") or _id_for(folder, title)),
         rel_path=rel,
-        type=str(meta.get("type") or folder or "Memory"),
+        type=type_str,
         title=title,
         body=body,
+        horizon=str(meta.get("horizon") or default_horizon),
         scope=str(meta.get("scope") or "private"),
         repo=(str(meta["repo"]) if meta.get("repo") else None),
         role=(str(meta["role"]) if meta.get("role") else None),
@@ -92,6 +96,7 @@ def save(
     tags: list[str] | None = None,
     links: list[str] | None = None,
     scope: str = "private",
+    horizon: str = "semantic",
     session_id: str | None = None,
     search_backend: "SearchBackend | None" = None,
 ) -> SaveResult:
@@ -135,6 +140,7 @@ def save(
         "id": _id_for(folder, title),
         "type": type_,
         "title": title,
+        "horizon": horizon,
         "scope": scope,
         "repo": repo,
         "role": role.name,

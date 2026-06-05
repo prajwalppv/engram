@@ -50,12 +50,14 @@ def build_server(settings: Settings) -> FastMCP:
             search_info = search_backend.stats()
         except Exception as e:  # pragma: no cover
             search_info = {"backend": "unknown", "error": str(e)}
+        from .core import preferences
         return {
             "store": str(settings.resolved_store()),
             "role": role_engine.status(store, settings.role),
             "available_roles": available_roles(),
             "search": search_info,
             "memory_count": sum(1 for _ in store.iter_entries()),
+            "preferences": len(preferences.list_preferences(store)),
             "privacy": "on-device only; nothing leaves this machine",
         }
 

@@ -5,7 +5,25 @@ All notable changes to **engram** are documented here. The format follows
 [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
-- Demo recording (`demo/engram.tape`) → `docs/demo.gif` in the README.
+- Multi-horizon memory roadmap Phases 2–5 (scope ladder, procedural, working memory).
+
+## [0.2.0] — 2026-06-05
+### Added — memory horizons, Phase 1: preferences / always-on layer
+- **Learned preferences.** engram now auto-detects standing rules you state
+  ("from now on…", "always…", "I prefer…", "never…") from your own turns and
+  stores them as a new **preference** horizon (global scope) — deterministic,
+  offline, conservative (no LLM, low false-positive).
+- **Hybrid always-on delivery.** Preferences are applied every session two ways:
+  a managed block in your project's `CLAUDE.md` (persistent; only content between
+  engram's markers is touched), and `SessionStart` injection (immediate).
+- **Easy undo.** New tools `memory_list_preferences` and `memory_forget`; surfaced
+  in `/engram:status`. Removal archives the note (recoverable) and de-indexes it.
+- **Lifelines.** Preferences are never auto-pruned.
+- **Model:** new `horizon` field (working | episodic | procedural | semantic |
+  preference), orthogonal to `type`; `memory_save` accepts `horizon`/`scope`.
+  Fully backward compatible — existing notes default to `semantic`.
+- New config: `ENGRAM_DETECT_PREFERENCES`, `ENGRAM_MANAGE_CLAUDE_MD`,
+  `ENGRAM_CLAUDE_MD_PATH`.
 
 ## [0.1.8] — 2026-06-04
 ### Fixed (pre-submission robustness audit)
@@ -89,7 +107,8 @@ All notable changes to **engram** are documented here. The format follows
   feedback. MIT licensed. Cross-platform self-contained binaries built in CI as
   a no-setup fallback.
 
-[Unreleased]: https://github.com/prajwalppv/engram/compare/v0.1.8...HEAD
+[Unreleased]: https://github.com/prajwalppv/engram/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/prajwalppv/engram/compare/v0.1.8...v0.2.0
 [0.1.8]: https://github.com/prajwalppv/engram/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/prajwalppv/engram/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/prajwalppv/engram/compare/v0.1.5...v0.1.6

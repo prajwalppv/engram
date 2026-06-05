@@ -92,8 +92,27 @@ Re-record the GIF with [VHS](https://github.com/charmbracelet/vhs):
   prevent duplicates. See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 - A **role profile** (SWE / PM / EM / …) shapes what gets extracted and recalled.
   Your role is inferred as soft weights from your sessions and is overridable.
+- An **always-on layer** learns your **standing preferences** ("always use uv",
+  "never force-push", "I prefer terse answers") and applies them every session —
+  see below.
 - A **feedback loop** (was a recalled memory used? edited? rejected?) tunes the
   role weights and the extraction/recall prompts over time.
+
+## Preferences — the always-on layer
+engram has different memory **horizons**. Most memory is *retrieved* on relevance
+(decisions, gotchas, conventions). But **standing preferences** are global rules
+that should apply to *every* session — so they're delivered automatically, two ways
+(a deliberate hybrid):
+
+- **Persistent:** engram maintains a managed block in your project's `CLAUDE.md`
+  (only ever touching content between its own markers — your file is otherwise untouched).
+- **Immediate:** they're also injected at `SessionStart`, so a freshly-learned
+  preference applies right away.
+
+It learns them **automatically** when you state a standing rule ("from now on…",
+"always…", "I prefer…") — no command needed — and they're **pruning lifelines**
+(never auto-removed). Review and remove them anytime with `/engram:status`
+(→ `memory_forget`). One-tap undo; fully recoverable.
 
 ## Architecture
 Memory is captured at multiple points in the session lifecycle and recalled at the
@@ -194,6 +213,9 @@ uv run pytest -q
 | `ENGRAM_EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | fastembed model. |
 | `ENGRAM_CAPTURE_ON_STOP` | `true` | Incremental end-of-turn (`Stop`) capture. Set `false` to capture only at PreCompact/SessionEnd. |
 | `ENGRAM_CAPTURE_EVERY_TURNS` | `13` | Min new user turns before a `Stop` capture fires (lower = more durable + more frequent distillation; higher = less overhead). PreCompact/SessionEnd flush the remainder regardless. |
+| `ENGRAM_DETECT_PREFERENCES` | `true` | Auto-learn standing preferences from your sessions. |
+| `ENGRAM_MANAGE_CLAUDE_MD` | `true` | Maintain engram's managed preferences block in `CLAUDE.md`. |
+| `ENGRAM_CLAUDE_MD_PATH` | project `./CLAUDE.md` | Where the managed block is written (set to `~/.claude/CLAUDE.md` for truly global). |
 
 ## Design seams
 - `core/` — vendor-neutral, no MCP imports.

@@ -4,7 +4,7 @@ from __future__ import annotations
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 
-from ..core import capture, feedback, ingest, memory
+from ..core import capture, feedback, ingest, memory, preferences
 from ..core import roles as role_engine
 from ..core.errors import CoreError
 from . import Deps
@@ -23,6 +23,7 @@ def register(mcp: FastMCP, deps: Deps) -> None:
         tags: list[str] | None = None,
         links: list[str] | None = None,
         scope: str = "private",
+        horizon: str = "semantic",
     ) -> dict:
         """Save a durable memory (a graph node). Appends a dated block if the title
         already exists (memory accumulates; nothing is overwritten).
@@ -34,15 +35,45 @@ def register(mcp: FastMCP, deps: Deps) -> None:
             repo: Project this relates to (for scoped recall).
             tags: Optional tags.
             links: Titles of related memories to link to ([[wikilinks]]).
-            scope: "private" (default). The dormant team-export seam reads this.
+            scope: session | repo | area | role | global. Default "private".
+            horizon: working | episodic | procedural | semantic | preference.
+                Default "semantic". Use "preference" for standing user rules.
         """
         try:
             return memory.save(
                 deps.store, _role(), type_=type, title=title, body=body, repo=repo,
-                tags=tags, links=links, scope=scope, search_backend=deps.search_backend,
+                tags=tags, links=links, scope=scope, horizon=horizon,
+                search_backend=deps.search_backend,
             ).model_dump()
         except CoreError as e:
             raise ToolError(str(e)) from e
+
+    @mcp.tool()
+    def memory_list_preferences() -> list[dict]:
+        """List the standing preferences engram has learned (the always-on layer).
+
+        These apply across every session/repo and are injected automatically.
+        Use memory_forget to remove one.
+        """
+        return [{"id": e.id, "title": e.title, "preference": e.body.strip(),
+                 "created": str(e.frontmatter.get("created") or "")}
+                for e in preferences.list_preferences(deps.store)]
+
+    @mcp.tool()
+    def memory_forget(identifier: str) -> dict:
+        """Remove a learned preference (easy undo). Archives it (recoverable) and
+        drops it from recall + the managed CLAUDE.md block on next session.
+
+        Args:
+            identifier: The preference's id, title, or relative path.
+        """
+        res = preferences.forget(deps.store, identifier, search_backend=deps.search_backend)
+        if deps.settings.claude_md_path:
+            try:
+                preferences.sync_claude_md(deps.store, str(deps.settings.claude_md_path))
+            except Exception:
+                pass
+        return res
 
     @mcp.tool()
     def memory_recall(
