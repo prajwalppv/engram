@@ -17,7 +17,8 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from . import memory
+from . import frontmatter as fm
+from . import memory, scoping
 from .models import MemoryEntry
 
 if TYPE_CHECKING:
@@ -77,10 +78,17 @@ def _title_for(text: str) -> str:
     return "Pref: " + (t if len(t) <= 60 else t[:57].rstrip() + "…")
 
 
-def list_preferences(store: "Store") -> list[MemoryEntry]:
-    out = [memory._read_entry(store, p) for p in store.iter_entries()]
-    out = [e for e in out if e.horizon == PREFERENCE_HORIZON or e.type == PREFERENCE_TYPE]
-    out.sort(key=lambda e: str(e.frontmatter.get("created") or ""), reverse=True)
+def list_preferences(store: "Store", *, repo: str | None = None,
+                     role: str | None = None, area: str | None = None) -> list[MemoryEntry]:
+    """Preferences that APPLY in the given context, superseded ones dropped, ordered
+    by precedence (global first → most-specific last, so the specific one wins)."""
+    allp = [e for e in (memory._read_entry(store, p) for p in store.iter_entries())
+            if e.horizon == PREFERENCE_HORIZON or e.type == PREFERENCE_TYPE]
+    retired = scoping.superseded_titles(allp)
+    out = [e for e in allp
+           if fm.sanitize_title(e.title) not in retired
+           and scoping.applies(e, repo=repo, role=role, area=area)]
+    out.sort(key=lambda e: (scoping.rank(e.scope), str(e.frontmatter.get("created") or "")))
     return out
 
 
@@ -137,20 +145,24 @@ def _first_line(body: str) -> str:
     return ""
 
 
-def render_block(store: "Store") -> str:
+def render_block(store: "Store", *, repo: str | None = None, role: str | None = None,
+                 area: str | None = None) -> str:
     """The CLAUDE.md managed-block body (empty string if there are no prefs)."""
-    prefs = list_preferences(store)
+    prefs = list_preferences(store, repo=repo, role=role, area=area)
     if not prefs:
         return ""
     lines = ["## Your preferences — remembered by engram", ""]
     for e in prefs:
-        lines.append(f"- {_first_line(e.body) or e.title}")
+        tag = "" if e.scope == "global" else f"  _({e.scope})_"
+        lines.append(f"- {_first_line(e.body) or e.title}{tag}")
     lines += ["", "_engram learned these from how you work. Remove any with "
               "`/engram:status` → forget, or just delete this block._"]
     return "\n".join(lines)
 
 
-def sync_claude_md(store: "Store", path: str | Path) -> bool:
+def sync_claude_md(store: "Store", path: str | Path, *, repo: str | None = None,
+                   role: str | None = None, area: str | None = None) -> bool:
     """Write/refresh engram's preference block into the CLAUDE.md at ``path``."""
     from . import claudemd
-    return claudemd.update_managed_block(Path(path), render_block(store))
+    return claudemd.update_managed_block(
+        Path(path), render_block(store, repo=repo, role=role, area=area))

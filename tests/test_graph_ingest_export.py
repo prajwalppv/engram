@@ -67,8 +67,9 @@ def test_hookcli_ingest_and_recall(tmp_path, monkeypatch, capsys):
 
 # --- export (dormant) ----------------------------------------------------
 def test_export_is_dormant(store, swe):
-    memory.save(store, swe, type_="Decision", title="X", body="b", scope="team")
-    res = export.export(store, scope="team")
+    # eligibility is now the `visibility` axis (export), separate from `scope`
+    memory.save(store, swe, type_="Decision", title="X", body="b", visibility="team")
+    res = export.export(store, scope="team")  # `scope` here names a visibility level
     assert res["status"] == "not_implemented"
     assert res["eligible_count"] == 1
 

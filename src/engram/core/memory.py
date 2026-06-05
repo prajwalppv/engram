@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from . import frontmatter as fm
+from . import scoping
 from .errors import MemoryNotFoundError
 from .models import MemoryEntry, MemoryHit, SaveResult
 from .store import Store
@@ -47,6 +48,22 @@ def _read_entry(store: Store, path: Path) -> MemoryEntry:
     type_str = str(meta.get("type") or folder or "Memory")
     default_horizon = {"SessionSummary": "episodic", "SessionDigest": "episodic",
                        "Preference": "preference"}.get(type_str, "semantic")
+    repo_v = str(meta["repo"]) if meta.get("repo") else None
+    # scope/visibility disambiguation. New notes write a `visibility` key, so the
+    # `scope` key is the applicability ladder. Phase-1 preference notes wrote a
+    # ladder value ('global') without `visibility`. Pre-horizon legacy notes wrote
+    # a visibility value ('private'/'team') in `scope` and no ladder/visibility.
+    raw_scope = str(meta.get("scope") or "")
+    if "visibility" in meta:
+        scope_v = raw_scope if scoping.is_ladder(raw_scope) else scoping.default_scope(repo=repo_v)
+        visibility_v = str(meta.get("visibility") or "private")
+    elif scoping.is_ladder(raw_scope):
+        scope_v, visibility_v = raw_scope, "private"
+    else:
+        visibility_v = raw_scope or "private"
+        scope_v = scoping.default_scope(repo=repo_v)
+    raw_sup = meta.get("supersedes") or []
+    supersedes = [str(x) for x in (raw_sup if isinstance(raw_sup, list) else [raw_sup])]
     return MemoryEntry(
         id=str(meta.get("id") or _id_for(folder, title)),
         rel_path=rel,
@@ -54,9 +71,12 @@ def _read_entry(store: Store, path: Path) -> MemoryEntry:
         title=title,
         body=body,
         horizon=str(meta.get("horizon") or default_horizon),
-        scope=str(meta.get("scope") or "private"),
-        repo=(str(meta["repo"]) if meta.get("repo") else None),
+        scope=scope_v,
+        visibility=visibility_v,
+        repo=repo_v,
+        area=(str(meta["area"]) if meta.get("area") else None),
         role=(str(meta["role"]) if meta.get("role") else None),
+        supersedes=supersedes,
         tags=[str(t) for t in (tags if isinstance(tags, list) else [tags])],
         links=links,
         frontmatter={k: (str(v) if not isinstance(v, (list, dict, int, float, bool, type(None))) else v)
@@ -95,12 +115,17 @@ def save(
     repo: str | None = None,
     tags: list[str] | None = None,
     links: list[str] | None = None,
-    scope: str = "private",
+    scope: str | None = None,
     horizon: str = "semantic",
+    visibility: str = "private",
+    area: str | None = None,
+    supersedes: list[str] | None = None,
     session_id: str | None = None,
     search_backend: "SearchBackend | None" = None,
 ) -> SaveResult:
     """Create a memory node, or append a dated block if its title already exists."""
+    scope = scoping.normalize(scope, repo=repo) if scope else \
+        scoping.default_scope(horizon=horizon, repo=repo)
     title = title.strip()
     folder = role.folder_for(type_)
     existing = find_path(store, title)
@@ -142,8 +167,11 @@ def save(
         "title": title,
         "horizon": horizon,
         "scope": scope,
+        "visibility": visibility,
         "repo": repo,
+        "area": area,
         "role": role.name,
+        "supersedes": list(supersedes) if supersedes else None,
         "created": _today(),
         "source_session": session_id,
     }
@@ -160,20 +188,28 @@ def save(
     return SaveResult(id=ent.id, rel_path=rel, action="created", backup_rel_path=backup)
 
 
-def list_recent(store: Store, *, repo: str | None = None, limit: int = 8,
-                types: list[str] | None = None) -> list[MemoryEntry]:
-    """Most-recent memories (optionally for a repo) — used by SessionStart recall,
-    where there's no query yet. Recency by the `created` frontmatter date."""
-    ents: list[MemoryEntry] = []
-    for p in store.iter_entries():
-        ent = _read_entry(store, p)
-        if repo and ent.repo != repo:
-            continue
+def list_recent(store: Store, *, repo: str | None = None, role: str | None = None,
+                area: str | None = None, limit: int = 8,
+                types: list[str] | None = None,
+                exclude_horizons: set[str] | None = None) -> list[MemoryEntry]:
+    """Most-recent memories that APPLY in the given context — used by SessionStart
+    recall, where there's no query yet. Applicability-filtered (so other repos'
+    memory never leaks in), superseded entries dropped. Recency by `created`."""
+    all_ents = [_read_entry(store, p) for p in store.iter_entries()]
+    superseded = scoping.superseded_titles(all_ents)
+    out: list[MemoryEntry] = []
+    for ent in all_ents:
         if types and ent.type not in types:
             continue
-        ents.append(ent)
-    ents.sort(key=lambda e: (str(e.frontmatter.get("created") or ""), e.rel_path), reverse=True)
-    return ents[:limit]
+        if exclude_horizons and ent.horizon in exclude_horizons:
+            continue
+        if fm.sanitize_title(ent.title) in superseded:
+            continue
+        if not scoping.applies(ent, repo=repo, role=role, area=area):
+            continue
+        out.append(ent)
+    out.sort(key=lambda e: (str(e.frontmatter.get("created") or ""), e.rel_path), reverse=True)
+    return out[:limit]
 
 
 def recall(
@@ -184,19 +220,25 @@ def recall(
     repo: str | None = None,
     scope: str | None = None,
     type_: str | None = None,
+    role: str | None = None,
+    area: str | None = None,
+    session: str | None = None,
     limit: int = 8,
 ) -> list[MemoryHit]:
-    """Recall memories relevant to ``query`` (semantic when available), with
-    optional repo/scope/type filters applied post-hoc."""
+    """Recall memories relevant to ``query`` (semantic when available). Results are
+    applicability-filtered to the (repo, role, area, session) context, so memories
+    scoped to a different repo/role/area never surface here. ``scope``/``type_``
+    are optional exact filters."""
     hits = search_backend.query(query, limit=limit * 3)
     out: list[MemoryHit] = []
+    need = any((repo, scope, type_, role, area, session))
     for h in hits:
-        if repo or scope or type_:
+        if need:
             try:
                 ent = read(store, h.rel_path)
             except MemoryNotFoundError:
                 continue
-            if repo and ent.repo != repo:
+            if not scoping.applies(ent, repo=repo, role=role, area=area, session=session):
                 continue
             if scope and ent.scope != scope:
                 continue

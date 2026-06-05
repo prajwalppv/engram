@@ -18,9 +18,14 @@ class MemoryEntry(BaseModel):
     # preference. Orthogonal to `type` (which is the fine-grained category within
     # a horizon). Defaults to "semantic" for backward compatibility.
     horizon: str = "semantic"
-    scope: str = "private"        # session | repo | area | role | global (export seam)
+    # scope = APPLICABILITY ladder: global | role | area | repo | session.
+    scope: str = "global"
+    # visibility = the dormant export axis (private | team), separate from scope.
+    visibility: str = "private"
     repo: str | None = None
+    area: str | None = None       # cross-repo domain (e.g. "python", "frontend")
     role: str | None = None       # role (or blend) at capture time
+    supersedes: list[str] = Field(default_factory=list)  # titles this memory retires
     tags: list[str] = Field(default_factory=list)
     links: list[str] = Field(default_factory=list)
     frontmatter: dict[str, Any] = Field(default_factory=dict)

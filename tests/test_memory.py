@@ -11,7 +11,9 @@ def test_save_creates_routed_by_role(store, swe):
     assert res.rel_path == "Decisions/Use Postgres.md"
     ent = memory.read(store, "Use Postgres")
     assert ent.type == "Decision" and ent.repo == "payments"
-    assert ent.role == "swe" and ent.scope == "private"
+    # scope is now the applicability ladder (repo, since a repo was given);
+    # the dormant export axis lives on `visibility` (default private).
+    assert ent.role == "swe" and ent.scope == "repo" and ent.visibility == "private"
     assert "Postgres" in ent.body
 
 

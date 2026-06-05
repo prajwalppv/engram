@@ -22,8 +22,10 @@ def register(mcp: FastMCP, deps: Deps) -> None:
         repo: str | None = None,
         tags: list[str] | None = None,
         links: list[str] | None = None,
-        scope: str = "private",
+        scope: str | None = None,
         horizon: str = "semantic",
+        area: str | None = None,
+        supersedes: list[str] | None = None,
     ) -> dict:
         """Save a durable memory (a graph node). Appends a dated block if the title
         already exists (memory accumulates; nothing is overwritten).
@@ -32,18 +34,21 @@ def register(mcp: FastMCP, deps: Deps) -> None:
             type: Node type (role-specific, e.g. "Decision", "Gotcha", "Requirement").
             title: Short, unique title — also the wikilink target.
             body: The memory content (markdown).
-            repo: Project this relates to (for scoped recall).
+            repo: Project this relates to (sets repo applicability).
             tags: Optional tags.
             links: Titles of related memories to link to ([[wikilinks]]).
-            scope: session | repo | area | role | global. Default "private".
+            scope: Applicability — global | role | area | repo | session. Default:
+                global, or repo if a repo is given (preference→global, working→session).
             horizon: working | episodic | procedural | semantic | preference.
-                Default "semantic". Use "preference" for standing user rules.
+            area: Cross-repo domain for area-scoped memories (e.g. "python").
+            supersedes: Titles of older memories this one replaces (retires them
+                from recall — how a more-specific rule overrides a general one).
         """
         try:
             return memory.save(
                 deps.store, _role(), type_=type, title=title, body=body, repo=repo,
-                tags=tags, links=links, scope=scope, horizon=horizon,
-                search_backend=deps.search_backend,
+                tags=tags, links=links, scope=scope, horizon=horizon, area=area,
+                supersedes=supersedes, search_backend=deps.search_backend,
             ).model_dump()
         except CoreError as e:
             raise ToolError(str(e)) from e
@@ -90,7 +95,8 @@ def register(mcp: FastMCP, deps: Deps) -> None:
             limit: Max results.
         """
         hits = memory.recall(deps.store, deps.search_backend, query,
-                             repo=repo, type_=type, limit=limit)
+                             repo=repo, type_=type, role=_role().name,
+                             area=deps.settings.area, limit=limit)
         feedback.record_recall(deps.store, query, [h.id for h in hits if h.id])
         return [h.model_dump() for h in hits]
 

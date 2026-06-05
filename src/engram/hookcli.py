@@ -60,21 +60,25 @@ def cmd_recall() -> int:
         cwd = data.get("cwd")
         repo = _repo_of(cwd)
         from .core import memory, preferences
+        from .core import roles as role_engine
         store, settings = _store_and_settings()
+        role = role_engine.current_role_name(store, settings.role)
+        area = settings.area
 
-        prefs = preferences.list_preferences(store)
+        prefs = preferences.list_preferences(store, repo=repo, role=role, area=area)
         # Persistent half of the hybrid layer: refresh the managed CLAUDE.md block.
         if getattr(settings, "manage_claude_md", True):
             target = settings.claude_md_path or (Path(cwd) / "CLAUDE.md" if cwd else None)
             if target:
                 try:
-                    preferences.sync_claude_md(store, str(target))
+                    preferences.sync_claude_md(store, str(target), repo=repo, role=role, area=area)
                 except Exception:
                     pass
 
-        ents = memory.list_recent(store, repo=repo, limit=6)
-        if not ents and repo:
-            ents = memory.list_recent(store, limit=4)  # fall back to global recent
+        # Recalled memory excludes horizons surfaced elsewhere (prefs here; working
+        # memory injected only on resume) and is applicability-filtered to context.
+        ents = memory.list_recent(store, repo=repo, role=role, area=area, limit=6,
+                                  exclude_horizons={"preference", "working"})
 
         sections: list[str] = []
         if prefs:  # always-on: applies immediately this session
@@ -127,7 +131,10 @@ def _capture(*, force: bool, label: str) -> int:
             target = settings.claude_md_path or (Path(cwd) / "CLAUDE.md" if cwd else None)
             if target:
                 try:
-                    preferences.sync_claude_md(store, str(target))
+                    from .core import roles as role_engine
+                    role = role_engine.current_role_name(store, settings.role)
+                    preferences.sync_claude_md(store, str(target), repo=repo,
+                                               role=role, area=settings.area)
                 except Exception:
                     pass
         if results:

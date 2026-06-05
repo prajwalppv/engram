@@ -25,9 +25,12 @@ class Settings(BaseSettings):
     store_dir: Path = Field(default_factory=_default_store)
     index_dir: Path | None = Field(default=None)  # defaults to <store_dir>/.index
 
-    # --- role ----------------------------------------------------------------
+    # --- role / area ---------------------------------------------------------
     # "auto" = infer from sessions (soft weights). Or pin: "swe" | "pm" | "em".
     role: str = Field(default="auto")
+    # Optional cross-repo domain for the scope ladder (e.g. "python", "frontend").
+    # Memories scoped to a different area won't surface here when this is set.
+    area: str | None = Field(default=None)
 
     # --- pruning (bonsai) ----------------------------------------------------
     prune_min_age_days: int = Field(default=14)   # only fold sessions older than this
