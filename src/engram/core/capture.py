@@ -40,6 +40,14 @@ def capture_session(
                 store, role, transcript_text, search_backend=search_backend)
         except Exception:
             pass
+    # Procedural horizon: capture any runbooks the user spelled out (lead-in + steps).
+    if getattr(settings, "detect_procedures", True):
+        try:
+            from . import procedural
+            results += procedural.capture_from_session(
+                store, role, transcript_text, repo=repo, search_backend=search_backend)
+        except Exception:
+            pass
     items = summarizer.summarize_session(
         store, settings, transcript_text, role=role, repo=repo)
     for it in items:

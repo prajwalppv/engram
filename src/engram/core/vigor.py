@@ -20,6 +20,7 @@ from .store import Store
 # Type durability: how trunk-like a node is (higher = keep longer).
 TYPE_DURABILITY = {
     "Preference": 3.0,  # lifeline — also guarded out of pruning entirely
+    "Procedure": 2.5,   # runbooks: durable, supersede-with-history (never auto-pruned)
     "Decision": 2.0, "Gotcha": 2.0, "Convention": 2.0, "Requirement": 2.0,
     "Person": 2.0, "Tradeoff": 1.5, "Service": 1.5, "Commitment": 1.5,
     "Process": 1.5, "SessionDigest": 1.2, "Note": 1.0, "SessionSummary": 0.4,
