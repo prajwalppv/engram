@@ -90,6 +90,14 @@ def capture_delta(
     delta = events[start:]
     if not delta:
         return []
+    # Working memory: refresh the session's "where was I" snapshot every tick
+    # (cheap, no LLM) — independent of the throttled expensive capture below.
+    if getattr(settings, "working_memory", True):
+        try:
+            from . import working
+            working.update(store, session_id, events, repo)
+        except Exception:
+            pass
     new_user_turns = sum(1 for e in delta if e["role"] == "user")
     if not force and new_user_turns < max(1, min_turns):
         return []  # accumulate; a later trigger will flush this delta

@@ -81,6 +81,15 @@ def cmd_recall() -> int:
                                   exclude_horizons={"preference", "working"})
 
         sections: list[str] = []
+        # Working memory: only when RESUMING a session (a fresh snapshot exists for
+        # this exact session_id). A brand-new session has none, so nothing shows.
+        if getattr(settings, "working_memory", True):
+            from .core import working
+            wstate = working.load(store, data.get("session_id"))
+            if working.is_fresh(wstate, settings.working_ttl_hours) and wstate.get("summary"):
+                sections.append("### engram — resuming where you left off")
+                sections.append(f"- {wstate['summary']}")
+                sections.append("")
         if prefs:  # always-on: applies immediately this session
             sections.append("### engram — your preferences")
             for e in prefs[:8]:

@@ -52,6 +52,8 @@ class Settings(BaseSettings):
     # sessions and deliver them every session via the hybrid always-on layer.
     detect_preferences: bool = Field(default=True)
     detect_procedures: bool = Field(default=True)     # auto-capture runbooks (procedural)
+    working_memory: bool = Field(default=True)        # track per-session "where was I"
+    working_ttl_hours: int = Field(default=18)        # resume window; older = pruned
     manage_claude_md: bool = Field(default=True)     # write the managed CLAUDE.md block
     claude_md_path: Path | None = Field(default=None)  # override; else <cwd>/CLAUDE.md
 
