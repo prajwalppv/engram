@@ -24,6 +24,8 @@ from .tools import role as t_role
 
 
 def build_server(settings: Settings) -> FastMCP:
+    from .core import migrate
+    migrate.maybe_migrate(settings.resolved_store())  # one-time legacy-store rescue
     store = Store(FileSystemBackend(settings.resolved_store()))
     search_backend = build_backend(settings, store)
 

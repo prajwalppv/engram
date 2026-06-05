@@ -1,0 +1,12 @@
+{
+  "//": "Drop this into your repo's .claude/settings.json so every teammate gets engram auto-installed AND auto-updated on clone + trust — no manual steps. autoUpdate refreshes the marketplace and pulls new plugin releases at Claude Code startup.",
+  "extraKnownMarketplaces": {
+    "engram": {
+      "source": { "source": "github", "repo": "prajwalppv/engram" },
+      "autoUpdate": true
+    }
+  },
+  "enabledPlugins": {
+    "engram@engram": true
+  }
+}

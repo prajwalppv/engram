@@ -35,8 +35,10 @@ def _repo_of(cwd: str | None) -> str | None:
 
 def _store_and_settings():
     from .config import load_settings
+    from .core import migrate
     from .core.store import FileSystemBackend, Store
     s = load_settings()
+    migrate.maybe_migrate(s.resolved_store())  # one-time legacy-store rescue (no-op once populated)
     return Store(FileSystemBackend(s.resolved_store())), s
 
 

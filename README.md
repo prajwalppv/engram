@@ -216,6 +216,29 @@ Then restart Claude Code. The plugin:
 **Zero-click for a shared repo:** commit a `.claude/settings.json` with
 `extraKnownMarketplaces` + `enabledPlugins` so teammates get it on clone+trust.
 
+## Staying up to date (auto-updates)
+You shouldn't have to babysit updates. How updates reach you:
+- **Installed from the community marketplace** (`engram@claude-community`): updates
+  are **automatic** — Anthropic-managed marketplaces have auto-update on by default,
+  so new releases land silently at startup (you'll get a `/reload-plugins` nudge).
+- **Installed from this repo** (`engram@engram`): third-party marketplaces default
+  to *manual* updates. Turn auto-update on once via `/plugin` → **Marketplaces** →
+  engram → **Enable auto-update** (or `claude plugin update engram` when you like).
+- **For a team:** drop this in your repo's `.claude/settings.json` and everyone
+  gets engram **auto-installed and auto-updated** on clone + trust — no manual steps
+  (see [`examples/team-settings.json`](examples/team-settings.json)):
+  ```json
+  {
+    "extraKnownMarketplaces": {
+      "engram": { "source": { "source": "github", "repo": "prajwalppv/engram" }, "autoUpdate": true }
+    },
+    "enabledPlugins": { "engram@engram": true }
+  }
+  ```
+Updates are safe across the store-path change: on first run a new version
+**auto-migrates** any legacy store into `~/.engram/store` (copy-only, never
+destructive), so an update never appears to lose your memory.
+
 ## Semantic recall (default)
 Semantic recall is **on by default** — local embeddings via fastembed (ONNX, no
 PyTorch). The deps come from PyPI and the model from HuggingFace, **pulled once on

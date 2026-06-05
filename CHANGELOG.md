@@ -7,6 +7,17 @@ All notable changes to **engram** are documented here. The format follows
 ## [Unreleased]
 - Team sharing (opt-in, redacted) over the dormant `visibility` axis.
 
+## [0.3.2] — 2026-06-05
+### Added
+- **Safe auto-updates.** Updates can now land silently without losing memory: on
+  first run a new version **auto-migrates** any legacy store (the pre-0.3.1
+  `$CLAUDE_PLUGIN_DATA/store`, or sibling `engram-*/store`) into `~/.engram/store`
+  — copy-only, never destructive, idempotent, and never fatal to startup.
+- **Team auto-update recipe** (`examples/team-settings.json`) + a README
+  "Staying up to date" section: community-marketplace installs auto-update by
+  default; a committed `.claude/settings.json` with `autoUpdate: true` gives a
+  team zero-touch install + updates on clone + trust.
+
 ## [0.3.1] — 2026-06-05
 ### Fixed
 - **Unified, stable store (memory no longer fragments across hosts).** The store
