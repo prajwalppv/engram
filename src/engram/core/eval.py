@@ -19,10 +19,11 @@ def score_recall(store: Store, search_backend: SearchBackend,
                  cases: list[dict], *, k: int = 5) -> dict:
     if not cases:
         return {"n": 0, "mrr": 0.0, "recall_at_k": 0.0, "k": k}
+    from . import ranking
     rr_sum = 0.0
     hit = 0
     for c in cases:
-        hits = search_backend.query(c["query"], limit=k)
+        hits = ranking.hybrid_recall(store, search_backend, c["query"], limit=k)
         rank = next((i + 1 for i, h in enumerate(hits) if h.id == c["expected_id"]), 0)
         if rank:
             rr_sum += 1.0 / rank
@@ -46,14 +47,14 @@ def self_retrieval(store: Store, search_backend: SearchBackend, *,
     """Automatic, label-free recall health: query each note with a phrase from its
     own body and check it comes back in the top-k. A healthy index scores ~1.0;
     a drop flags drift, a broken index, or an embedding regression."""
-    from . import memory
+    from . import memory, ranking
     ents = [memory._read_entry(store, p) for p in store.iter_entries()][:sample]
     if not ents:
         return {"n": 0, "recall_at_k": 0.0, "mrr": 0.0, "k": k}
     rr_sum = 0.0
     hit = 0
     for e in ents:
-        hits = search_backend.query(_query_from(e), limit=k)
+        hits = ranking.hybrid_recall(store, search_backend, _query_from(e), limit=k)
         rank = next((i + 1 for i, h in enumerate(hits) if h.rel_path == e.rel_path), 0)
         if rank:
             rr_sum += 1.0 / rank

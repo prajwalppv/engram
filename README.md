@@ -184,6 +184,9 @@ Working, single-user, local-only — with a real memory model:
 - **Self-healing index + a recall metric** — the semantic index repairs drift
   automatically (cross-process-safe writes), and `memory_eval` reports recall@k/MRR
   so quality is measured, not assumed.
+- **Hybrid recall** — dense embeddings fused with lexical (term-overlap) ranking +
+  graph-neighbor expansion, so exact tokens (error codes, flags, paths) are recalled,
+  not just semantic matches. Measured +exact-term recall@5 0.80→1.00 on a real store.
 
 ## Requirements
 - [uv](https://docs.astral.sh/uv/) for the full **semantic** experience. On first

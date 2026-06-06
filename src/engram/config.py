@@ -70,6 +70,8 @@ class Settings(BaseSettings):
     embedding_model: str = Field(default="BAAI/bge-small-en-v1.5")
     similarity_threshold: float = Field(default=0.55)  # recall floor (graph recall)
     recall_limit: int = Field(default=8)
+    recall_hybrid: bool = Field(default=True)         # fuse lexical + dense (RRF)
+    recall_graph_expand: bool = Field(default=True)   # surface linked neighbors
 
     # --- transport (local only) ---------------------------------------------
     transport: str = Field(default="stdio")  # "stdio" (default) | "http"
