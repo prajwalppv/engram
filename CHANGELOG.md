@@ -7,6 +7,23 @@ All notable changes to **engram** are documented here. The format follows
 ## [Unreleased]
 - Team sharing (opt-in, redacted) over the dormant `visibility` axis.
 
+## [0.4.0] — 2026-06-05
+### Added — foundation: index integrity + a real recall metric
+- **Self-healing semantic index.** On first use the backend detects **drift**
+  (notes on disk missing from the index — i.e. silently un-recallable) and rebuilds
+  automatically; a corrupt index is rebuilt instead of erroring. New `memory_reindex`
+  tool reports what was out of sync; `engram_info` now shows `in_sync`.
+- **Cross-process-safe index writes.** Index read-modify-write is now guarded by a
+  file lock and always re-loads authoritative state from disk before mutating, so
+  two Claude Code hosts sharing `~/.engram/store` can't clobber each other's rows
+  (the cause of the earlier "26 of 33 indexed" drift).
+- **Runnable recall scorecard.** `memory_eval` reports **recall@k / MRR** from
+  labeled cases (feedback + new **golden** cases via `memory_add_recall_case`) PLUS
+  an automatic, label-free **self-retrieval** health metric — so "self-improving"
+  is measured, and regressions/drift are caught by a number.
+### Fixed
+- Existing stores that had drifted are repaired on next run (or via `memory_reindex`).
+
 ## [0.3.2] — 2026-06-05
 ### Added
 - **Safe auto-updates.** Updates can now land silently without losing memory: on

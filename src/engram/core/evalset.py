@@ -16,7 +16,8 @@ from pathlib import Path
 
 from .store import Store
 
-_RECALL_REL = ".state/eval/recall.jsonl"
+_RECALL_REL = ".state/eval/recall.jsonl"          # harvested from feedback
+_GOLDEN_REL = ".state/eval/recall_golden.jsonl"   # explicit (query → expected) goldens
 _EXTRACT_REL = ".state/eval/extraction.jsonl"
 _FEEDBACK_REL = ".state/feedback.jsonl"
 
@@ -58,6 +59,40 @@ def harvest_recall_cases(store: Store) -> list[dict]:
 
 def load_recall_cases(store: Store) -> list[dict]:
     return _read_jsonl(store.root / _RECALL_REL) or harvest_recall_cases(store)
+
+
+def load_golden_recall_cases(store: Store) -> list[dict]:
+    return _read_jsonl(store.root / _GOLDEN_REL)
+
+
+def add_recall_case(store: Store, query: str, expected: str,
+                    repo: str | None = None) -> int:
+    """Add an explicit golden recall case: a query + the memory that SHOULD rank
+    for it. ``expected`` may be a title or an id — resolved to a stable id."""
+    from . import memory
+    try:
+        expected_id = memory.read(store, expected).id
+    except Exception:
+        expected_id = expected
+    p = store.root / _GOLDEN_REL
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "a", encoding="utf-8") as f:
+        f.write(json.dumps({"query": query, "expected_id": expected_id, "repo": repo},
+                           ensure_ascii=False) + "\n")
+    return len(load_golden_recall_cases(store))
+
+
+def load_all_recall_cases(store: Store) -> list[dict]:
+    """Harvested feedback cases + explicit goldens, deduped by (query, expected_id)."""
+    seen: set = set()
+    out: list[dict] = []
+    for c in (load_recall_cases(store) + load_golden_recall_cases(store)):
+        key = (c.get("query"), c.get("expected_id"))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(c)
+    return out
 
 
 def load_extraction_cases(store: Store) -> list[dict]:

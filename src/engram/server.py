@@ -50,6 +50,11 @@ def build_server(settings: Settings) -> FastMCP:
         """Report engram status: store path, role, search backend, memory count."""
         try:
             search_info = search_backend.stats()
+            if hasattr(search_backend, "verify"):
+                v = search_backend.verify(store)
+                search_info["in_sync"] = v["in_sync"]
+                if not v["in_sync"]:
+                    search_info["missing_from_index"] = v["missing_count"]
         except Exception as e:  # pragma: no cover
             search_info = {"backend": "unknown", "error": str(e)}
         from .core import memory as _memory

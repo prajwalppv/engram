@@ -181,6 +181,9 @@ Working, single-user, local-only — with a real memory model:
   compaction and abrupt exits.
 - **One stable store** at `~/.engram/store`, shared across every editor/host, with
   safe auto-migration on update.
+- **Self-healing index + a recall metric** — the semantic index repairs drift
+  automatically (cross-process-safe writes), and `memory_eval` reports recall@k/MRR
+  so quality is measured, not assumed.
 
 ## Requirements
 - [uv](https://docs.astral.sh/uv/) for the full **semantic** experience. On first

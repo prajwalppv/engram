@@ -144,6 +144,19 @@ def register(mcp: FastMCP, deps: Deps) -> None:
         """Record that recalled memories were actually useful (feedback signal).
 
         Reinforces the producing role(s) and logs the signal for later tuning.
+        This is ALSO a recall-eval label — a (query → useful memory) positive.
         """
         feedback.record_signal(deps.store, "used", ids, roles_used=roles)
         return {"recorded": "used", "count": len(ids)}
+
+    @mcp.tool()
+    def memory_reindex() -> dict:
+        """Rebuild/repair the semantic index from the store, healing any drift
+        (memories present on disk but missing from the index — i.e. un-recallable).
+        Reports what was out of sync before and after. No-op for the text backend.
+        """
+        sb = deps.search_backend
+        before = sb.verify(deps.store) if hasattr(sb, "verify") else None
+        result = sb.reindex_all(deps.store)
+        after = sb.verify(deps.store) if hasattr(sb, "verify") else None
+        return {"before": before, "reindex": result, "after": after}

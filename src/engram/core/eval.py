@@ -31,6 +31,48 @@ def score_recall(store: Store, search_backend: SearchBackend,
     return {"n": n, "mrr": round(rr_sum / n, 3), "recall_at_k": round(hit / n, 3), "k": k}
 
 
+def _query_from(entry) -> str:
+    """A query proxy derived from a note's BODY (not its title), so self-retrieval
+    tests the embedding/index rather than a trivial title match."""
+    for ln in (entry.body or "").splitlines():
+        s = ln.strip()
+        if s and not s.startswith(("#", "_", "**")):
+            return s[:160]
+    return entry.title
+
+
+def self_retrieval(store: Store, search_backend: SearchBackend, *,
+                   k: int = 5, sample: int = 200) -> dict:
+    """Automatic, label-free recall health: query each note with a phrase from its
+    own body and check it comes back in the top-k. A healthy index scores ~1.0;
+    a drop flags drift, a broken index, or an embedding regression."""
+    from . import memory
+    ents = [memory._read_entry(store, p) for p in store.iter_entries()][:sample]
+    if not ents:
+        return {"n": 0, "recall_at_k": 0.0, "mrr": 0.0, "k": k}
+    rr_sum = 0.0
+    hit = 0
+    for e in ents:
+        hits = search_backend.query(_query_from(e), limit=k)
+        rank = next((i + 1 for i, h in enumerate(hits) if h.rel_path == e.rel_path), 0)
+        if rank:
+            rr_sum += 1.0 / rank
+            hit += 1
+    n = len(ents)
+    return {"n": n, "recall_at_k": round(hit / n, 3), "mrr": round(rr_sum / n, 3), "k": k}
+
+
+def run(store: Store, search_backend: SearchBackend, *, k: int = 5) -> dict:
+    """The recall scorecard: labeled recall@k/MRR (your feedback + golden cases)
+    plus the automatic self-retrieval health metric. One number to optimize."""
+    from . import evalset
+    labeled = evalset.load_all_recall_cases(store)
+    return {
+        "labeled_recall": score_recall(store, search_backend, labeled, k=k),
+        "self_retrieval": self_retrieval(store, search_backend, k=k),
+    }
+
+
 def _coverage(items: list[dict], expected_terms: list[str]) -> float:
     if not expected_terms:
         return 1.0

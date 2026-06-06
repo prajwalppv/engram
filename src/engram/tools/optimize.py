@@ -40,13 +40,31 @@ def register(mcp: FastMCP, deps: Deps) -> None:
         return optimize.rollback_prompt(deps.store)
 
     @mcp.tool()
+    def memory_eval(k: int = 5) -> dict:
+        """Run the recall scorecard and report the metrics — labeled recall@k/MRR
+        (from your feedback + golden cases) PLUS an automatic, label-free
+        self-retrieval health score. This is the number to drive engram's quality
+        and to catch regressions/index drift."""
+        return ev.run(deps.store, deps.search_backend, k=k)
+
+    @mcp.tool()
+    def memory_add_recall_case(query: str, expected: str, repo: str | None = None) -> dict:
+        """Add a GOLDEN recall case: a query and the memory (title or id) that
+        should be recalled for it. Builds a labeled set so recall@k/MRR is
+        measurable without waiting on usage feedback."""
+        n = evalset.add_recall_case(deps.store, query, expected, repo)
+        return {"golden_recall_cases": n}
+
+    @mcp.tool()
     def memory_eval_status() -> dict:
-        """Show eval health: recall ranking quality (from harvested feedback) and
-        how many extraction eval cases exist."""
-        recall_cases = evalset.load_recall_cases(deps.store)
+        """Show eval health: recall ranking quality (feedback + goldens), label-free
+        self-retrieval health, and how many eval cases exist."""
+        recall_cases = evalset.load_all_recall_cases(deps.store)
         return {
             "recall": ev.score_recall(deps.store, deps.search_backend, recall_cases),
+            "self_retrieval": ev.self_retrieval(deps.store, deps.search_backend),
             "recall_cases": len(recall_cases),
+            "golden_recall_cases": len(evalset.load_golden_recall_cases(deps.store)),
             "extraction_cases": len(evalset.load_extraction_cases(deps.store)),
             "tuned": optimize.load_tuned(deps.store),
         }
