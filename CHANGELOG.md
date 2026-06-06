@@ -7,6 +7,26 @@ All notable changes to **engram** are documented here. The format follows
 ## [Unreleased]
 - Team sharing (opt-in, redacted) over the dormant `visibility` axis.
 
+## [0.5.0] — 2026-06-05
+### Added — recall quality (hybrid ranking)
+- **Hybrid retrieval** (`core/ranking.py`): fuse the dense (embedding) ranking with
+  a lexical (term-overlap) ranking via weighted Reciprocal Rank Fusion. Dense stays
+  the primary signal; lexical *augments* it to recover the exact tokens embeddings
+  are weak at (error codes, flags, IDs, paths) — it can't overturn a clear dense win.
+- **Light tie-break boosts** — recency, scope precedence (more-specific wins), and
+  type durability, kept small so relevance dominates.
+- **Graph-neighbor expansion** — the strongest hits pull in their linked neighbors
+  (discounted), surfacing related memory via the wikilink graph.
+- Tunable via `ENGRAM_RECALL_HYBRID` / `ENGRAM_RECALL_GRAPH_EXPAND` (both default on).
+### Measured (15 golden cases on a real store; recall@5 / MRR)
+- Exact-term queries: **0.80/0.80 → 1.00/0.90**. Paraphrase: 0.90/0.783 → 0.90/0.775
+  (negligible). **Overall: 0.867/0.789 → 0.933/0.817.** The eval (`memory_eval`) now
+  runs through the real ranking path, so the metric reflects the product.
+### Note
+- This was measurement-driven: the first cut (symmetric fusion + large boosts) *hurt*
+  MRR (0.783→0.65); `memory_eval` caught it and drove the dense-weighted, tiny-boost
+  design above. Honest tradeoff: small paraphrase cost for a large exact-term gain.
+
 ## [0.4.0] — 2026-06-05
 ### Added — foundation: index integrity + a real recall metric
 - **Self-healing semantic index.** On first use the backend detects **drift**

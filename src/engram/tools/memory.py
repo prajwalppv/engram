@@ -96,7 +96,9 @@ def register(mcp: FastMCP, deps: Deps) -> None:
         """
         hits = memory.recall(deps.store, deps.search_backend, query,
                              repo=repo, type_=type, role=_role().name,
-                             area=deps.settings.area, limit=limit)
+                             area=deps.settings.area, limit=limit,
+                             hybrid=deps.settings.recall_hybrid,
+                             expand_graph=deps.settings.recall_graph_expand)
         feedback.record_recall(deps.store, query, [h.id for h in hits if h.id])
         return [h.model_dump() for h in hits]
 

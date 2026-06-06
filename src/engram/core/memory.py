@@ -224,29 +224,26 @@ def recall(
     area: str | None = None,
     session: str | None = None,
     limit: int = 8,
+    hybrid: bool = True,
+    expand_graph: bool = True,
 ) -> list[MemoryHit]:
-    """Recall memories relevant to ``query`` (semantic when available). Results are
-    applicability-filtered to the (repo, role, area, session) context, so memories
-    scoped to a different repo/role/area never surface here. ``scope``/``type_``
+    """Recall memories relevant to ``query`` — hybrid (lexical + dense) ranking with
+    light recency/scope/type boosts and graph-neighbor expansion (see core/ranking).
+    Results are applicability-filtered to the (repo, role, area, session) context, so
+    memories scoped to a different repo/role/area never surface. ``scope``/``type_``
     are optional exact filters."""
-    hits = search_backend.query(query, limit=limit * 3)
-    out: list[MemoryHit] = []
-    need = any((repo, scope, type_, role, area, session))
-    for h in hits:
-        if need:
+    from . import ranking
+    hits = ranking.hybrid_recall(
+        store, search_backend, query, repo=repo, role=role, area=area,
+        session=session, type_=type_, limit=(limit * 2 if scope else limit),
+        hybrid=hybrid, expand_graph=expand_graph)
+    if scope:
+        out: list[MemoryHit] = []
+        for h in hits:
             try:
-                ent = read(store, h.rel_path)
+                if read(store, h.rel_path).scope == scope:
+                    out.append(h)
             except MemoryNotFoundError:
                 continue
-            if not scoping.applies(ent, repo=repo, role=role, area=area, session=session):
-                continue
-            if scope and ent.scope != scope:
-                continue
-            if type_ and ent.type.lower() != type_.lower():
-                continue
-            h.repo = ent.repo
-            h.id = ent.id
-        out.append(h)
-        if len(out) >= limit:
-            break
-    return out
+        return out[:limit]
+    return hits
