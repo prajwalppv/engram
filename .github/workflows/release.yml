@@ -77,6 +77,7 @@ jobs:
       # Release page with the changelog and attaches the binaries for direct download.
       - name: Publish GitHub Release (tags only)
         if: startsWith(github.ref, 'refs/tags/')
+        continue-on-error: true  # nice-to-have notes; binaries already shipped via bin/ on main
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -86,9 +87,12 @@ jobs:
             p {print}
           ' CHANGELOG.md)
           [ -n "$notes" ] || notes="See CHANGELOG.md for details."
-          gh release create "$GITHUB_REF_NAME" \
-            --title "engram $GITHUB_REF_NAME" \
-            --notes "$notes" \
-            bin/darwin_arm64/engram#engram-darwin-arm64 \
-            bin/linux_x86_64/engram#engram-linux-x86_64 \
+          # Split create-notes from upload-assets: gh release create with inline
+          # assets is atomic — a flaky asset upload (HTTP 404) rolls back the whole
+          # release. And both binaries are named "engram", so they're copied to
+          # distinct asset names first.
+          cp bin/darwin_arm64/engram engram-darwin-arm64
+          cp bin/linux_x86_64/engram engram-linux-x86_64
+          gh release create "$GITHUB_REF_NAME" --title "engram $GITHUB_REF_NAME" --notes "$notes" \
             || gh release edit "$GITHUB_REF_NAME" --notes "$notes"
+          gh release upload "$GITHUB_REF_NAME" engram-darwin-arm64 engram-linux-x86_64 --clobber
