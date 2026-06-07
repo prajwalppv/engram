@@ -181,6 +181,39 @@ def cmd_ingest() -> int:
     return _capture(force=True, label="ingest")
 
 
+def cmd_guard() -> int:
+    """PreToolUse hook — surface ONE relevant guardrail memory before a risky tool
+    runs, as non-blocking advisory context. Fast, lexical, fail-open, dedup'd.
+
+    Emits only ``additionalContext`` (never a permissionDecision), so it informs
+    Claude without touching the permission flow — it can never auto-approve or block.
+    """
+    try:
+        data = _read_hook_input()
+        from .core import proactive
+        from .core import roles as role_engine
+        store, settings = _store_and_settings()
+        if not getattr(settings, "proactive", True):
+            return 0
+        adv = proactive.guardrail(
+            store, tool_name=data.get("tool_name", ""), tool_input=data.get("tool_input") or {},
+            repo=_repo_of(data.get("cwd")),
+            role=role_engine.current_role_name(store, settings.role),
+            area=settings.area, session=data.get("session_id"),
+            min_score=settings.proactive_min_score)
+        if not adv:
+            return 0
+        proactive.mark_shown(store, data.get("session_id"), adv["rel_path"])
+        ctx = (f"⚠️ engram — you've recorded something relevant to this action:\n"
+               f"- [{adv['type']}] {adv['title']}: {adv['excerpt']}")
+        payload = json.dumps({"hookSpecificOutput": {
+            "hookEventName": "PreToolUse", "additionalContext": ctx}})
+    except Exception:
+        return 0  # fail open — never block or delay a tool
+    print(payload)
+    return 0
+
+
 def main() -> None:
     # Recursion guard (belt-and-suspenders to the launcher check): never let a
     # nested `claude -p` summarizer run trigger another capture.
@@ -192,10 +225,11 @@ def main() -> None:
         "capture": cmd_capture,
         "precompact": cmd_precompact,
         "ingest": cmd_ingest,
+        "guard": cmd_guard,
     }
     fn = dispatch.get(cmd)
     if fn is None:
-        print("usage: engram-hook {recall|capture|precompact|ingest}", file=sys.stderr)
+        print("usage: engram-hook {recall|capture|precompact|ingest|guard}", file=sys.stderr)
         raise SystemExit(2)
     raise SystemExit(fn())
 

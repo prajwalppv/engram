@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     manage_claude_md: bool = Field(default=True)     # write the managed CLAUDE.md block
     claude_md_path: Path | None = Field(default=None)  # override; else <cwd>/CLAUDE.md
 
+    # --- proactive guardrails (PreToolUse) -----------------------------------
+    proactive: bool = Field(default=True)            # surface a relevant memory before a risky tool runs
+    proactive_min_score: float = Field(default=1.0)  # IDF-lite threshold (higher = stricter/quieter)
+
     summarizer: str = Field(default="claude")
     # Kept comfortably under the hook timeout (120s) so the summarizer subprocess
     # is reaped by us, never by the harness killing the hook mid-call.

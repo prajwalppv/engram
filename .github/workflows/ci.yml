@@ -1,0 +1,22 @@
+name: CI
+
+# Runs the full suite — unit tests AND eval gates (recall, guardrail, preference
+# detection, role inference, pruning safety) — on every push and PR, so a quality
+# regression fails the build, not just a crash. Deterministic: the eval gates use
+# the text backend / stateless scorers, so no embedding model is downloaded.
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.2.0  # no floating v8 tag published yet
+      - name: Tests + eval gates
+        run: uv run --extra dev pytest -q
