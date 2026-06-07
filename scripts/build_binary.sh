@@ -8,7 +8,12 @@ cd "$(dirname "$0")/.."
 
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
 ARCH="$(uname -m)"
-OUT="bin/${OS}_${ARCH}"
+# Output root defaults to the committed bin/ (handy for local dev). CI overrides
+# it with a CLEAN staging dir (ENGRAM_BIN_DIR=stage) so the uploaded artifact
+# holds ONLY this runner's freshly-built arch — never the other platform's stale
+# binary carried in from the git checkout. That stale copy is what let a
+# last-writer-wins race in the commit job resurrect old binaries.
+OUT="${ENGRAM_BIN_DIR:-bin}/${OS}_${ARCH}"
 
 echo "Building engram binary for ${OS}_${ARCH}…"
 uv sync --extra build >/dev/null
