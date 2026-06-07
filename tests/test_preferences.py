@@ -49,6 +49,14 @@ def test_detect_ignores_tool_output_and_file_dumps():
     assert found == ["please always run the full test suite before pushing"], found
 
 
+def test_detect_keeps_legit_prefs_that_mention_paths():
+    # An absolute path is NOT a non-prose tell — these are real standing prefs.
+    for t in ("never edit /etc/hosts directly",
+              "always deploy from /var/www/app",
+              "always build artifacts in /tmp/build"):
+        assert preferences.detect("user: " + t) == [t], t
+
+
 def test_read_transcript_excludes_tool_results():
     import json, tempfile, os
     from engram.core import ingest

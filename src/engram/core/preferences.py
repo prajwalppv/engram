@@ -38,9 +38,10 @@ _STRONG_CUE = re.compile(
     r"remember to always|stick to|default to|whenever you)\b", re.I)
 # Imperative sentence starts that read as a rule, not a one-off ask.
 _IMPERATIVE_START = re.compile(r"^\s*(always|never|prefer|avoid|don'?t|do not)\b", re.I)
-# Non-prose tells: code fences, markdown headers, runs of line numbers (file dumps),
-# urls/paths. A standing preference is a single human sentence — never one of these.
-_NOISE = re.compile(r"```|(?:^|\s)#{1,6}\s|\b\d{1,}\s+\d{1,}\b|https?://|/\w+/\w+")
+# Non-prose tells a standing preference NEVER contains: code fences, markdown
+# headers, runs of line numbers (file dumps), urls. (Absolute paths are NOT a tell
+# — "never edit /etc/hosts directly" is a perfectly valid preference.)
+_NOISE = re.compile(r"```|(?:^|\s)#{1,6}\s|\b\d{1,}\s+\d{1,}\b|https?://")
 
 _USER_TURN_RE = re.compile(r"(?:^|\n)user:\s*(.*?)(?=\n(?:assistant|user):|\Z)",
                            re.I | re.S)

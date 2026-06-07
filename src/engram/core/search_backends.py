@@ -208,6 +208,14 @@ class SemanticSearchBackend:
                 with open(self._vec_path, "rb") as fh:
                     self._vecs = np.load(fh)
                 self._meta = json.loads(self._meta_path.read_text(encoding="utf-8"))
+                # vectors.npy and meta.json are persisted as two separate atomic
+                # replaces, so a lock-free reader in another process can catch a
+                # TORN pair (e.g. new vectors, old meta). Clamp to the consistent
+                # prefix so _search can never index past _meta; the freshness check
+                # reloads the full state once the writer has finished both files.
+                if self._vecs is not None and len(self._vecs) != len(self._meta):
+                    n = min(len(self._vecs), len(self._meta))
+                    self._vecs, self._meta = self._vecs[:n], self._meta[:n]
             except Exception:
                 self._vecs, self._meta = None, []
         self._loaded = True

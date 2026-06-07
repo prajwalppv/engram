@@ -7,6 +7,20 @@ All notable changes to **engram** are documented here. The format follows
 ## [Unreleased]
 - Team sharing (opt-in, redacted) over the dormant `visibility` axis.
 
+## [0.6.2] — 2026-06-07
+### Fixed — hardening pass
+- **Lock-free readers can't crash on a torn index.** `vectors.npy` and `meta.json`
+  are persisted as two separate atomic replaces, so a reader in another process
+  (with 0.6.1's freshness reload, more often) could load a torn pair — more vectors
+  than meta — and `IndexError` past `_meta` in recall. `_load_from_disk` now clamps
+  to the consistent prefix; the freshness check reloads the full state once the
+  writer finishes. Regression test added.
+- **Preferences mentioning an absolute path are no longer dropped.** 0.6.1's
+  non-prose noise filter over-matched: a `/word/word` clause silently rejected
+  valid standing prefs like "never edit /etc/hosts directly". Removed that clause
+  (absolute paths aren't a non-prose tell); kept the code-fence/header/line-number/
+  URL tells. Regression test added.
+
 ## [0.6.1] — 2026-06-07
 ### Fixed — memory quality & freshness (found in an end-to-end audit)
 - **Tool output no longer pollutes the always-on layer.** In Claude Code

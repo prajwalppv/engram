@@ -88,6 +88,29 @@ def test_reader_reloads_after_out_of_band_index_write(store, generic, monkeypatc
     assert v["in_sync"] and v["indexed"] == 2, v
 
 
+def test_torn_two_file_read_does_not_crash_search(store, generic, monkeypatch):
+    # vectors.npy and meta.json are two separate atomic replaces; a lock-free
+    # reader can catch a torn pair (more vectors than meta). _search must not
+    # IndexError past _meta — the load clamps to the consistent prefix.
+    import json as _json
+    import numpy as np
+    monkeypatch.setattr(SemanticSearchBackend, "_embed", _fake_embed)
+    for t, b in [("A", "aaa"), ("B", "bbb")]:
+        memory.save(store, generic, type_="Note", title=t, body=b)
+    sb = _backend(store)
+    sb.reindex_all(store)                       # disk: 2 vectors, 2 meta
+    idx = store.root / ".index"
+    # Simulate a torn write: vectors grew to 3 rows, meta still has 2 entries.
+    vecs = np.load(idx / "vectors.npy")
+    np.save(idx / "vectors.npy", np.vstack([vecs, vecs[:1]]))   # now 3 rows
+    assert len(_json.loads((idx / "meta.json").read_text())) == 2
+
+    fresh = _backend(store)
+    hits = fresh.query("aaa", limit=5)          # must not raise
+    assert len(fresh._meta) == len(fresh._vecs)  # clamped to consistent prefix
+    assert all(h.rel_path for h in hits)
+
+
 def test_reindex_drops_deleted_notes(store, generic, monkeypatch):
     monkeypatch.setattr(SemanticSearchBackend, "_embed", _fake_embed)
     ra = memory.save(store, generic, type_="Note", title="A", body="aaa")
