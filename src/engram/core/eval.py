@@ -74,6 +74,91 @@ def run(store: Store, search_backend: SearchBackend, *, k: int = 5) -> dict:
     }
 
 
+def score_guardrail(store: Store, cases: list[dict], *, min_score: float = 1.0) -> dict:
+    """Proactive-guardrail quality. Each case: {tool_name, tool_input, repo?,
+    expected: <memory title> | None}. Reports precision (of fires, how many right),
+    recall (of should-fires, how many caught), and silence_rate (benign actions left
+    alone) — the anti-noise number."""
+    from . import proactive
+    if not cases:
+        return {"n": 0, "precision": 1.0, "recall": 1.0, "silence_rate": 1.0}
+    fires = correct = should = silent_total = silent_ok = 0
+    for c in cases:
+        adv = proactive.guardrail(store, tool_name=c["tool_name"], tool_input=c["tool_input"],
+                                  repo=c.get("repo"), session="eval", min_score=min_score)
+        exp = c.get("expected")
+        if exp:
+            should += 1
+            if adv:
+                fires += 1
+                correct += int(adv["title"] == exp)
+        else:
+            silent_total += 1
+            if adv:
+                fires += 1
+            else:
+                silent_ok += 1
+    return {
+        "n": len(cases),
+        "precision": round(correct / fires, 3) if fires else 1.0,
+        "recall": round(correct / should, 3) if should else 1.0,
+        "silence_rate": round(silent_ok / silent_total, 3) if silent_total else 1.0,
+        "fires": fires, "correct": correct, "should_fire": should,
+    }
+
+
+def score_preference_detection(cases: list[dict]) -> dict:
+    """Auto-preference detection quality. Each case: {text, is_preference: bool}.
+    Precision matters most — a false positive pollutes every session's always-on layer."""
+    from . import preferences
+    if not cases:
+        return {"n": 0, "precision": 1.0, "recall": 1.0}
+    tp = fp = fn = tn = 0
+    for c in cases:
+        detected = bool(preferences.detect("user: " + c["text"]))
+        label = bool(c["is_preference"])
+        tp += int(label and detected)
+        fn += int(label and not detected)
+        fp += int(not label and detected)
+        tn += int(not label and not detected)
+    return {
+        "n": len(cases),
+        "precision": round(tp / (tp + fp), 3) if (tp + fp) else 1.0,
+        "recall": round(tp / (tp + fn), 3) if (tp + fn) else 1.0,
+        "tp": tp, "fp": fp, "fn": fn, "tn": tn,
+    }
+
+
+def score_role_inference(cases: list[dict]) -> dict:
+    """Role-inference accuracy. Each case: {text, expected_role}. Uses the signal
+    distribution (argmax), so it grades the role ontologies' signal terms statelessly."""
+    from . import roles as role_engine
+    if not cases:
+        return {"n": 0, "accuracy": 1.0}
+    correct = 0
+    for c in cases:
+        sig = role_engine.infer_signals(c["text"])
+        pred = max(sig, key=sig.get) if sig else "generic"
+        correct += int(pred == c["expected_role"])
+    return {"n": len(cases), "accuracy": round(correct / len(cases), 3), "correct": correct}
+
+
+def prune_safety(store: Store, settings) -> dict:
+    """Pruning must never plan a LIFELINE (preference) or durable type for removal —
+    only ephemeral session notes get consolidated. Returns any violations."""
+    from . import memory, prune
+    planned: set[str] = set()
+    for grp in prune.analyze(store, settings).get("plan", []):
+        planned.update(grp.get("titles", []))
+    protected = {"Decision", "Gotcha", "Constraint", "Convention", "Requirement", "Preference"}
+    violations = []
+    for p in store.iter_entries():
+        ent = memory._read_entry(store, p)
+        if (ent.horizon == "preference" or ent.type in protected) and ent.title in planned:
+            violations.append(ent.title)
+    return {"planned": len(planned), "lifeline_violations": violations, "safe": not violations}
+
+
 def _coverage(items: list[dict], expected_terms: list[str]) -> float:
     if not expected_terms:
         return 1.0

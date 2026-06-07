@@ -7,6 +7,28 @@ All notable changes to **engram** are documented here. The format follows
 ## [Unreleased]
 - Team sharing (opt-in, redacted) over the dormant `visibility` axis.
 
+## [0.6.0] — 2026-06-05
+### Added — proactive guardrails
+- **Surface the right memory at the moment of action.** A `PreToolUse` hook
+  (scoped to `Bash|Edit|Write|MultiEdit`) matches the pending action against
+  guardrail-type memory (Gotcha/Constraint/Preference/Decision/…) and injects a
+  concise heads-up as **non-blocking advisory context** — e.g. `git push --force`
+  surfaces your "commit only when asked" rule. Lexical IDF-lite matching (instant,
+  no model load), per-session dedup, fail-open, never changes the permission
+  decision. Tunable: `ENGRAM_PROACTIVE` (default on), `ENGRAM_PROACTIVE_MIN_SCORE`.
+### Added — eval harness + CI gating
+- **CI runs the full suite on every push/PR** (`.github/workflows/ci.yml`) — unit
+  tests AND eval gates. Previously nothing gated a merge.
+- **Eval gates with thresholds** (a quality regression fails the build, not just a
+  crash): recall@k/MRR, proactive guardrail precision/recall/**silence-rate**,
+  preference-detection precision/recall, role-inference accuracy, pruning lifeline
+  safety, and extraction coverage. All deterministic (text backend / stateless
+  scorers → no model download). Scorers live in `core/eval.py` (reusable).
+### Note
+- The proactive advisory emits `additionalContext` only (no `permissionDecision`),
+  so it informs without auto-approving or blocking — confirm it surfaces by
+  dogfooding (trigger a known guardrail and see it referenced).
+
 ## [0.5.0] — 2026-06-05
 ### Added — recall quality (hybrid ranking)
 - **Hybrid retrieval** (`core/ranking.py`): fuse the dense (embedding) ranking with

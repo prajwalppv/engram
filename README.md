@@ -187,6 +187,12 @@ Working, single-user, local-only — with a real memory model:
 - **Hybrid recall** — dense embeddings fused with lexical (term-overlap) ranking +
   graph-neighbor expansion, so exact tokens (error codes, flags, paths) are recalled,
   not just semantic matches. Measured +exact-term recall@5 0.80→1.00 on a real store.
+- **Proactive guardrails** — at the moment you run a risky tool (`Bash`/`Edit`/…),
+  engram surfaces a relevant remembered gotcha/decision as non-blocking advice, so
+  Claude doesn't repeat a known mistake. Conservative + per-session dedup; `ENGRAM_PROACTIVE=0` to disable.
+- **Eval-gated** — recall, guardrail precision/silence, preference detection, role
+  inference, pruning safety, and extraction all run as CI gates, so quality
+  regressions fail the build, not just crashes.
 
 ## Requirements
 - [uv](https://docs.astral.sh/uv/) for the full **semantic** experience. On first
