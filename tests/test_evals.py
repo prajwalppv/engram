@@ -78,6 +78,11 @@ def test_preference_detection_gate():
         {"text": "the build failed because of a null pointer", "is_preference": False},
         {"text": "can you fix this bug in the parser", "is_preference": False},
         {"text": "what does this function do", "is_preference": False},
+        # real-world noise: tool output / file dumps flattened into "user:" turns.
+        # These leaked bogus prefs before the tool_result exclusion + non-prose guard.
+        {"text": "218 219 ## Semantic recall (default) on by default", "is_preference": False},
+        {"text": "95 - an always-on layer learns your standing preferences", "is_preference": False},
+        {"text": "see the docs at https://example.com/always by default", "is_preference": False},
     ]
     p = ev.score_preference_detection(cases)
     assert p["precision"] >= 0.8, p   # false positives are costly (every session)

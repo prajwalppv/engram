@@ -33,6 +33,46 @@ def test_detect_ignores_non_preferences():
     assert preferences.detect(text) == []
 
 
+def test_detect_ignores_tool_output_and_file_dumps():
+    # Tool results / file dumps arrive flattened as "user:" text. They must NOT be
+    # mined as standing preferences just because they contain "by default" / "always"
+    # — that was the root cause of bogus "Pref: 111 112 …" entries.
+    text = (
+        "user: please always run the full test suite before pushing\n\n"
+        "user: 95 - An always-on layer learns your standing preferences\n"
+        "111 112 It learns them automatically when you state a rule\n"
+        "218 219 ## Semantic recall (default)\n"
+        "Semantic recall on by default (local embeddings); avoid network calls\n\n"
+        "user: see the docs at https://example.com/always-do-this by default"
+    )
+    found = preferences.detect(text)
+    assert found == ["please always run the full test suite before pushing"], found
+
+
+def test_read_transcript_excludes_tool_results():
+    import json, tempfile, os
+    from engram.core import ingest
+    lines = [
+        {"type": "user", "message": {"role": "user", "content": "always use uv"}},
+        {"type": "user", "message": {"role": "user", "content": [
+            {"type": "tool_result", "content": "1 always import os\n2 def main(): ..."}]}},
+        {"type": "assistant", "message": {"role": "assistant", "content": [
+            {"type": "text", "text": "done"},
+            {"type": "tool_use", "name": "Bash", "input": {"command": "ls"}}]}},
+    ]
+    p = tempfile.mktemp(suffix=".jsonl")
+    Path(p).write_text("\n".join(json.dumps(x) for x in lines), encoding="utf-8")
+    try:
+        ev = ingest.read_transcript(p)
+    finally:
+        os.remove(p)
+    texts = [e["text"] for e in ev]
+    assert "always use uv" in texts
+    assert "done" in texts
+    assert not any("import os" in t for t in texts)  # tool_result dropped
+    assert not any("ls" == t for t in texts)         # tool_use dropped
+
+
 # ---------------------------------------------------------------- add / list / forget
 def test_add_list_dedupe_and_forget(store, swe, text_backend):
     r1 = preferences.add(store, swe, "Always use uv, never pip.", search_backend=text_backend)

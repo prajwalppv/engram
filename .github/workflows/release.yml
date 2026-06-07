@@ -70,3 +70,25 @@ jobs:
           git add bin/
           git commit -m "ci: platform binaries for ${GITHUB_REF_NAME:-manual}" || { echo "no changes"; exit 0; }
           git push origin HEAD:main
+
+      # Human-facing release notes only. NOT a delivery channel: Claude Code installs
+      # plugins from the git tree (cloned repo), never from Release assets — so the
+      # binaries above still ship via bin/ on main. This just gives each tag a
+      # Release page with the changelog and attaches the binaries for direct download.
+      - name: Publish GitHub Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes=$(awk -v ver="${GITHUB_REF_NAME#v}" '
+            $0 ~ "^## \\[" ver "\\]" {p=1; next}
+            p && /^## \[/ {exit}
+            p {print}
+          ' CHANGELOG.md)
+          [ -n "$notes" ] || notes="See CHANGELOG.md for details."
+          gh release create "$GITHUB_REF_NAME" \
+            --title "engram $GITHUB_REF_NAME" \
+            --notes "$notes" \
+            bin/darwin_arm64/engram#engram-darwin-arm64 \
+            bin/linux_x86_64/engram#engram-linux-x86_64 \
+            || gh release edit "$GITHUB_REF_NAME" --notes "$notes"

@@ -243,7 +243,15 @@ You shouldn't have to babysit updates. How updates reach you:
   so new releases land silently at startup (you'll get a `/reload-plugins` nudge).
 - **Installed from this repo** (`engram@engram`): third-party marketplaces default
   to *manual* updates. Turn auto-update on once via `/plugin` → **Marketplaces** →
-  engram → **Enable auto-update** (or `claude plugin update engram` when you like).
+  engram → **Enable auto-update**, or add `"autoUpdate": true` to the marketplace
+  entry in `settings.json` (see the team block below). To update **by hand** instead,
+  run *both* steps — the marketplace cache lags the repo, so the plugin update alone
+  won't see a new release:
+  ```bash
+  claude plugin marketplace update engram   # 1. pull new releases into the cache
+  claude plugin update engram@engram        # 2. then bump the installed plugin
+  ```
+  Either way, **restart Claude Code** afterward — an update is *staged, not live*, until restart.
 - **For a team:** drop this in your repo's `.claude/settings.json` and everyone
   gets engram **auto-installed and auto-updated** on clone + trust — no manual steps
   (see [`examples/team-settings.json`](examples/team-settings.json)):
