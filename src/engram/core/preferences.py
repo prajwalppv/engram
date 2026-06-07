@@ -38,6 +38,9 @@ _STRONG_CUE = re.compile(
     r"remember to always|stick to|default to|whenever you)\b", re.I)
 # Imperative sentence starts that read as a rule, not a one-off ask.
 _IMPERATIVE_START = re.compile(r"^\s*(always|never|prefer|avoid|don'?t|do not)\b", re.I)
+# Non-prose tells: code fences, markdown headers, runs of line numbers (file dumps),
+# urls/paths. A standing preference is a single human sentence — never one of these.
+_NOISE = re.compile(r"```|(?:^|\s)#{1,6}\s|\b\d{1,}\s+\d{1,}\b|https?://|/\w+/\w+")
 
 _USER_TURN_RE = re.compile(r"(?:^|\n)user:\s*(.*?)(?=\n(?:assistant|user):|\Z)",
                            re.I | re.S)
@@ -61,6 +64,10 @@ def detect(transcript_text: str) -> list[str]:
         s = raw.strip().lstrip("-*•").strip()
         if not (8 <= len(s) <= 240):
             continue
+        if "\n" in s or _NOISE.search(s):
+            continue  # multi-line blobs / code / file dumps are not standing prefs
+        if len(re.findall(r"[A-Za-z]{2,}", s)) < 3:
+            continue  # too few real words to be a meaningful instruction
         if not (_STRONG_CUE.search(s) or _IMPERATIVE_START.match(s)):
             continue
         key = _norm(s)

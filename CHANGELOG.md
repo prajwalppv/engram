@@ -7,6 +7,22 @@ All notable changes to **engram** are documented here. The format follows
 ## [Unreleased]
 - Team sharing (opt-in, redacted) over the dormant `visibility` axis.
 
+## [0.6.1] — 2026-06-07
+### Fixed — memory quality & freshness (found in an end-to-end audit)
+- **Tool output no longer pollutes the always-on layer.** In Claude Code
+  transcripts, tool results / file dumps arrive as `user`-role messages; the
+  preference detector was mining them, so line-numbered file content and doc text
+  ("…by default…") became bogus standing preferences injected every session.
+  Fix: `ingest` drops `tool_result`/`tool_use` blocks, and the detector now
+  rejects non-prose (code fences, markdown headers, line-number runs, URLs,
+  multi-line blobs). Added regression tests + real-world noise cases to the
+  preference-detection eval gate.
+- **The MCP server no longer serves a stale index.** A long-running server cached
+  its startup index snapshot, so memories captured by a hook (a separate process)
+  mid-session were missing from `memory_recall` until restart, and `engram_info`
+  falsely reported index drift. Fix: a cheap disk-fingerprint (mtime+size) makes
+  read paths reload when another process has written. Regression test added.
+
 ## [0.6.0] — 2026-06-05
 ### Added — proactive guardrails
 - **Surface the right memory at the moment of action.** A `PreToolUse` hook

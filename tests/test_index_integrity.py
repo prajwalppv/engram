@@ -66,6 +66,28 @@ def test_verify_detects_missing(store, generic, monkeypatch):
     assert v["in_sync"] is False and v["missing_count"] == 1
 
 
+def test_reader_reloads_after_out_of_band_index_write(store, generic, monkeypatch):
+    # The freshness fix: a long-running reader (the MCP server) must notice when
+    # another process — a capture HOOK — indexed new memories to disk, and reload
+    # instead of serving its stale startup snapshot (else recall misses them and
+    # engram_info falsely reports drift).
+    monkeypatch.setattr(SemanticSearchBackend, "_embed", _fake_embed)
+    memory.save(store, generic, type_="Note", title="A", body="aaa")
+    idx = store.root / ".index"
+    reader = _backend(store)
+    reader.reindex_all(store)                     # reader caches {A}
+    assert reader.verify(store)["indexed"] == 1
+
+    # another process saves AND indexes B out-of-band → disk index is now {A,B}
+    memory.save(store, generic, type_="Note", title="B", body="bbb")
+    SemanticSearchBackend(store, index_dir=idx).index_note(memory.read(store, "B"))
+
+    # reader sees the disk changed and reloads — recall + verify reflect {A,B}
+    assert {h.title for h in reader.query("bbb", limit=5)} >= {"B"}
+    v = reader.verify(store)
+    assert v["in_sync"] and v["indexed"] == 2, v
+
+
 def test_reindex_drops_deleted_notes(store, generic, monkeypatch):
     monkeypatch.setattr(SemanticSearchBackend, "_embed", _fake_embed)
     ra = memory.save(store, generic, type_="Note", title="A", body="aaa")

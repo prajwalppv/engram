@@ -118,6 +118,18 @@ class SemanticSearchBackend:
         self._meta: list[dict] | None = None
         self._loaded = False
         self._lock_held = False
+        self._fp: tuple | None = None  # on-disk index fingerprint at last load
+
+    def _disk_fingerprint(self) -> tuple | None:
+        """Cheap freshness signal for the on-disk index (mtime+size of both files).
+        Lets a long-running reader (the MCP server) notice when a separate process
+        — e.g. a capture HOOK — has written new memories+index rows out-of-band,
+        and reload instead of serving a stale startup snapshot."""
+        try:
+            sv, sm = self._vec_path.stat(), self._meta_path.stat()
+            return (sv.st_mtime_ns, sv.st_size, sm.st_mtime_ns, sm.st_size)
+        except OSError:
+            return None
 
     @property
     def _vec_path(self) -> Path:
@@ -152,6 +164,7 @@ class SemanticSearchBackend:
         with open(tm, "w", encoding="utf-8") as f:
             json.dump(self._meta or [], f, ensure_ascii=False)
         os.replace(tm, self._meta_path)
+        self._fp = self._disk_fingerprint()  # our own write is now the fresh baseline
 
     # ---- concurrency + integrity (the store is shared across editors/hosts) ---
     @contextlib.contextmanager
@@ -198,6 +211,7 @@ class SemanticSearchBackend:
             except Exception:
                 self._vecs, self._meta = None, []
         self._loaded = True
+        self._fp = self._disk_fingerprint()
 
     def _store_rels(self, store: Store) -> set:
         return {store.relpath(p) for p in store.iter_entries()}
@@ -219,7 +233,11 @@ class SemanticSearchBackend:
                 "in_sync": not missing and not stale}
 
     def _ensure_loaded(self) -> None:
-        if self._loaded:
+        # Reload when never loaded OR when the on-disk index changed under us (a
+        # capture hook in another process added memories). Without the freshness
+        # check a long-running server would serve its stale startup snapshot and
+        # both miss newly-captured memories in recall AND mis-report drift.
+        if self._loaded and self._fp == self._disk_fingerprint():
             return
         self._load_from_disk()
         # Self-heal: rebuild if the index is empty/corrupt or has DRIFTED from the

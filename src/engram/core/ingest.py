@@ -19,6 +19,12 @@ def _text_of(content) -> str:
         parts = []
         for b in content:
             if isinstance(b, dict):
+                # Tool output (file reads, command stdout, search results) arrives
+                # as a tool_result block inside a USER-role message. It is NOT human
+                # prose — mining it for preferences/decisions pulls in line-numbered
+                # file dumps and "…by default…" doc text as bogus standing rules.
+                if b.get("type") in ("tool_result", "tool_use"):
+                    continue
                 if b.get("type") == "text" and b.get("text"):
                     parts.append(b["text"])
                 elif "content" in b and isinstance(b["content"], str):
