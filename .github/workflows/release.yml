@@ -24,13 +24,18 @@ jobs:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v8.2.0  # no floating v8 major tag published yet
       - name: Build binary
-        run: bash scripts/build_binary.sh
+        # Build into a CLEAN staging dir, not the committed bin/. Otherwise the
+        # artifact would also carry the OTHER platform's stale binary from the
+        # checkout, and the commit job's collect-by-arch step could (and did)
+        # resurrect it via a last-writer-wins race.
+        run: ENGRAM_BIN_DIR=stage bash scripts/build_binary.sh
       - uses: actions/upload-artifact@v7
         with:
           name: bin-${{ matrix.os }}
-          # Upload the bin/ dir (not a glob): upload-artifact strips the common
-          # ancestor, so a glob would drop the <os>_<arch>/ prefix we rely on.
-          path: bin
+          # Upload stage/ (not a glob): upload-artifact strips the common
+          # ancestor, leaving the <os>_<arch>/ prefix we rely on — and stage/
+          # holds ONLY this runner's freshly-built arch.
+          path: stage
           if-no-files-found: error
 
   commit:
