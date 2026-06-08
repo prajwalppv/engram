@@ -7,6 +7,26 @@ All notable changes to **engram** are documented here. The format follows
 ## [Unreleased]
 - Team sharing (opt-in, redacted) over the dormant `visibility` axis.
 
+## [0.7.0] — 2026-06-07
+Competitive-analysis pass (vs claude-mem / mem0 / Zep / Letta): borrow the best
+ideas, keep engram's local-first, role-aware, zero-infra ethos. All eval-gated.
+### Added
+- **Token-frugal recall (progressive disclosure).** `memory_recall` returns a
+  compact index — each hit now carries a bounded `snippet` and a `created` date but
+  not the full body. The agent judges relevance from the index and fetches full
+  bodies via `memory_read` only on demand. Gate: `score_recall_compactness`.
+- **Temporal / bitemporal supersede.** Superseding a memory now stamps the retired
+  one with a dated back-reference (`superseded_by` / `superseded_on`) — content is
+  kept (the journey) while recall surfaces the current fact. `created` on hits is an
+  age signal for staleness. Gate: `score_temporal_currency`.
+- **`<private>` redaction.** Content wrapped in `<private>…</private>` is stripped
+  before *any* capture — never reaching the store, summarizer, index, or working
+  memory (fail-safe on an unclosed tag). Toggle `ENGRAM_REDACT_PRIVATE` (default on).
+  Gate: `score_redaction` (zero leakage).
+- **Provenance — `memory_why` tool + `/engram:why`.** Explains a memory's origin
+  (when/session/role), temporal lineage (what it retired / what retired it), and
+  graph context (links/backlinks) — so you can trust or discount a recalled fact.
+
 ## [0.6.2] — 2026-06-07
 ### Fixed — hardening pass
 - **Lock-free readers can't crash on a torn index.** `vectors.npy` and `meta.json`

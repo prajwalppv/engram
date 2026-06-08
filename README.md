@@ -137,6 +137,23 @@ scratch decays in a day; preferences effectively never — pruning is horizon-aw
 Procedural runbooks are auto-captured when you spell out a process with steps (or
 save one with `/engram:howto`); working memory needs no setup.
 
+## Recall, privacy & provenance
+- **Token-frugal recall (progressive disclosure).** `memory_recall` returns a
+  *compact index* — each hit carries a bounded `snippet` and a `created` date, not
+  the full body. The agent judges relevance from the index and pulls full bodies
+  with `memory_read` only when it needs them. Cheap recall, no token blowups.
+- **Temporal correctness.** When a memory supersedes another, the retired one is
+  kept but stamped with a dated back-reference (`superseded_by` / `superseded_on`);
+  recall surfaces the *current* fact while history stays traceable. `created` is an
+  age signal so a stale fact can be discounted.
+- **`<private>` redaction.** Anything you wrap in `<private>…</private>` is stripped
+  **before any capture** — it never reaches the store, summarizer, index, or working
+  memory (and an unclosed tag fails safe). On by default; `ENGRAM_REDACT_PRIVATE=false`
+  to opt out.
+- **Provenance — `/engram:why` (and the `memory_why` tool).** Ask why a recalled
+  fact exists: its origin (when/session/role), whether it's been superseded, and its
+  graph links — so you can trust it or discard it.
+
 ## Architecture
 Memory is captured at multiple points in the session lifecycle and recalled at the
 start of the next one — all on-device. ([full diagrams + component view →](docs/ARCHITECTURE.md))
@@ -289,6 +306,7 @@ uv run pytest -q
 | `ENGRAM_CAPTURE_ON_STOP` | `true` | Incremental end-of-turn (`Stop`) capture. Set `false` to capture only at PreCompact/SessionEnd. |
 | `ENGRAM_CAPTURE_EVERY_TURNS` | `13` | Min new user turns before a `Stop` capture fires (lower = more durable + more frequent distillation; higher = less overhead). PreCompact/SessionEnd flush the remainder regardless. |
 | `ENGRAM_DETECT_PREFERENCES` | `true` | Auto-learn standing preferences from your sessions. |
+| `ENGRAM_REDACT_PRIVATE` | `true` | Strip `<private>…</private>` spans before any capture (store, summarizer, index, working memory). |
 | `ENGRAM_MANAGE_CLAUDE_MD` | `true` | Maintain engram's managed preferences block in `CLAUDE.md`. |
 | `ENGRAM_CLAUDE_MD_PATH` | project `./CLAUDE.md` | Where the managed block is written (set to `~/.claude/CLAUDE.md` for truly global). |
 | `ENGRAM_DETECT_PROCEDURES` | `true` | Auto-capture runbooks (procedural memory) from spelled-out step lists. |
