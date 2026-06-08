@@ -39,14 +39,25 @@ def _repo_of(cwd: str | None) -> str | None:
     rejects version-string garbage so the scope ladder isn't corrupted by junk repos."""
     if not cwd:
         return None
-    name = Path(cwd).name
+    p = Path(cwd)
+    name = p.name
+    # Fast path: if cwd IS a git root (the common case), its basename is the repo —
+    # no subprocess. Only shell out to walk up to the root when cwd is a subdir / not
+    # a git root, or its basename is a version string we must resolve past. This
+    # keeps git off the PreToolUse hot path (the guard hook fires on every tool).
+    needs_resolve = _VERSION_RE.match(name or "")
     try:
-        r = _subprocess.run(["git", "-C", cwd, "rev-parse", "--show-toplevel"],
-                            capture_output=True, text=True, timeout=2)
-        if r.returncode == 0 and r.stdout.strip():
-            name = Path(r.stdout.strip()).name
+        needs_resolve = needs_resolve or not (p / ".git").exists()
     except Exception:
-        pass
+        needs_resolve = True
+    if needs_resolve:
+        try:
+            r = _subprocess.run(["git", "-C", cwd, "rev-parse", "--show-toplevel"],
+                                capture_output=True, text=True, timeout=2)
+            if r.returncode == 0 and r.stdout.strip():
+                name = Path(r.stdout.strip()).name
+        except Exception:
+            pass
     name = (name or "").strip()
     if not name or _VERSION_RE.match(name):
         return None  # version string / empty → no usable repo (better than a junk scope)
@@ -80,10 +91,10 @@ def cmd_recall() -> int:
     try:
         data = _read_hook_input()
         cwd = data.get("cwd")
-        repo = _repo_of(cwd)
         from .core import memory, preferences
         from .core import roles as role_engine
         store, settings = _store_and_settings()
+        repo = settings.repo or _repo_of(cwd)  # explicit ENGRAM_REPO wins over cwd
         role = role_engine.current_role_name(store, settings.role)
         area = settings.area
 
@@ -147,7 +158,6 @@ def _capture(*, force: bool, label: str) -> int:
     """
     data = _read_hook_input()
     cwd = data.get("cwd")
-    repo = _repo_of(cwd)
     tpath = data.get("transcript_path")
     if not tpath or not os.path.exists(tpath):
         return 0
@@ -155,6 +165,7 @@ def _capture(*, force: bool, label: str) -> int:
         from .core import capture, preferences
         from .core.search_backends import build_backend
         store, settings = _store_and_settings()
+        repo = settings.repo or _repo_of(cwd)  # explicit ENGRAM_REPO wins over cwd
         backend = build_backend(settings, store)  # keep new memories indexed for recall
         results = capture.capture_delta(
             store, settings, transcript_path=tpath, repo=repo,
@@ -217,7 +228,7 @@ def cmd_guard() -> int:
             return 0
         adv = proactive.guardrail(
             store, tool_name=data.get("tool_name", ""), tool_input=data.get("tool_input") or {},
-            repo=_repo_of(data.get("cwd")),
+            repo=settings.repo or _repo_of(data.get("cwd")),
             role=role_engine.current_role_name(store, settings.role),
             area=settings.area, session=data.get("session_id"),
             min_score=settings.proactive_min_score)

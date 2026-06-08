@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     # --- role / area ---------------------------------------------------------
     # "auto" = infer from sessions (soft weights). Or pin: "swe" | "pm" | "em".
     role: str = Field(default="auto")
+    # Explicit repo override. Hooks otherwise derive the repo from the cwd, which is
+    # WRONG when you work on project A from project B's directory (e.g. engram is
+    # edited as a plugin from another repo's session → everything mislabeled as that
+    # repo). Set ENGRAM_REPO=engram to pin it regardless of cwd.
+    repo: str | None = Field(default=None)
     # Optional cross-repo domain for the scope ladder (e.g. "python", "frontend").
     # Memories scoped to a different area won't surface here when this is set.
     area: str | None = Field(default=None)

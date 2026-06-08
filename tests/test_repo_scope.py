@@ -22,3 +22,11 @@ def test_repo_of_plain_dir_uses_basename(tmp_path):
     d.mkdir()
     # not a git repo → falls back to the directory basename (a real project name)
     assert _repo_of(str(d)) == "myproject"
+
+
+def test_engram_repo_override(monkeypatch):
+    # the cross-project fix: an explicit ENGRAM_REPO pins the repo regardless of cwd
+    from engram.config import Settings
+    assert Settings(repo="engram").repo == "engram"
+    monkeypatch.setenv("ENGRAM_REPO", "engram")
+    assert Settings().repo == "engram"

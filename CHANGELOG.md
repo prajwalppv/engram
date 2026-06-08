@@ -7,6 +7,31 @@ All notable changes to **engram** are documented here. The format follows
 ## [Unreleased]
 - Team sharing (opt-in, redacted) over the dormant `visibility` axis.
 
+## [0.11.0] — 2026-06-07
+Repo-scoping correctness + live-data healing. A deep verification pass found the
+root cause of mis-scoped memories and a perf regression I'd shipped, and added the
+tooling to repair an existing store.
+### Fixed
+- **Cross-project repo mislabeling.** Root cause: `_repo_of` derives the repo from
+  the cwd, which is wrong when you work on project A from project B's directory
+  (engram is edited as a plugin from another repo's session → everything captured
+  as that repo). Added an explicit **`ENGRAM_REPO`** override that wins over the
+  cwd — the durable prevention the v0.10.0 git-root hardening couldn't provide for
+  the cross-project case.
+- **Perf regression (mine, in v0.10.0).** The git-root resolution in `_repo_of`
+  spawned a `git` subprocess on **every** hook — including the guard hook that
+  fires on every tool call (~7.8 ms each). Added a `stat`-gated fast path: when cwd
+  is a git root (the common case) its basename is used with no subprocess (0.01 ms);
+  only subdirs/non-git/version-string cwds shell out.
+### Added — live-data healing (`memory_backfill` + helpers)
+- `consolidate.backfill_links` retroactively links related orphans;
+  `prune_dangling_links` removes edges to notes that no longer exist;
+  `rescope_repo` relabels cwd-mislabeled / version-garbage repos. Exposed as the
+  `memory_backfill` MCP tool (dry-run by default). All tested.
+- Applied to the maintainer's own store: **121 notes, orphans 60 → 0 (49% → 0%),
+  91 notes re-scoped to `engram`, 6 dangling links removed, 0 empty bodies** —
+  backed up first (the store isn't git-tracked).
+
 ## [0.10.0] — 2026-06-07
 Foundation depth — a grounded audit of a real 121-note store found the advanced
 machinery (scope ladder, graph expansion) was running on weak capture-time metadata:

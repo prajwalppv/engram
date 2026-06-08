@@ -176,3 +176,19 @@ def register(mcp: FastMCP, deps: Deps) -> None:
         result = sb.reindex_all(deps.store)
         after = sb.verify(deps.store) if hasattr(sb, "verify") else None
         return {"before": before, "reindex": result, "after": after}
+
+    @mcp.tool()
+    def memory_backfill(dry_run: bool = True) -> dict:
+        """Heal an existing store's graph: link related orphans together and remove
+        dangling links (edges to notes that no longer exist). Useful on a store that
+        predates auto-linking. ``dry_run=True`` (default) reports what WOULD change
+        without writing — review it, then call with dry_run=False to apply."""
+        from engram.core import consolidate
+        links = consolidate.backfill_links(deps.store, deps.search_backend, dry_run=dry_run)
+        dangling = consolidate.prune_dangling_links(deps.store, dry_run=dry_run)
+        if not dry_run:
+            try:
+                deps.search_backend.reindex_all(deps.store)
+            except Exception:
+                pass
+        return {"backfill_links": links, "prune_dangling": dangling, "dry_run": dry_run}

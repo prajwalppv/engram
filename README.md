@@ -322,6 +322,7 @@ uv run pytest -q
 | `ENGRAM_STORE_DIR` | `~/.engram/store` | Local memory store. |
 | `ENGRAM_SEARCH_BACKEND` | `semantic` | `semantic` (local embeddings) or `text`. |
 | `ENGRAM_ROLE` | `auto` | Pin a role (`swe`/`pm`/`em`) or infer. |
+| `ENGRAM_REPO` | _(cwd)_ | Pin the repo label. Set this when you edit a project from a *different* directory (e.g. a plugin), so memories aren't mis-scoped to the cwd's repo. |
 | `ENGRAM_EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | fastembed model. |
 | `ENGRAM_CAPTURE_ON_STOP` | `true` | Incremental end-of-turn (`Stop`) capture. Set `false` to capture only at PreCompact/SessionEnd. |
 | `ENGRAM_CAPTURE_EVERY_TURNS` | `13` | Min new user turns before a `Stop` capture fires (lower = more durable + more frequent distillation; higher = less overhead). PreCompact/SessionEnd flush the remainder regardless. |

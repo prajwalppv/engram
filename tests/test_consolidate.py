@@ -118,6 +118,55 @@ def test_capture_autolinks_new_node(store, generic, text_backend, monkeypatch):
     assert "Use Redis for cache" in (g.links or [])   # cross-type relatedness link
 
 
+# ---------------------------------------------------------------- live backfill
+def test_backfill_links_heals_orphans(store, generic, text_backend):
+    # two related nodes saved WITHOUT links (orphans)
+    memory.save(store, generic, type_="Decision", title="Use Redis for cache",
+                body="we use redis for the session cache layer")
+    memory.save(store, generic, type_="Gotcha", title="Redis eviction surprises",
+                body="redis cache eviction can drop session keys for sessions")
+    assert all(not memory._read_entry(store, p).links for p in store.iter_entries())
+
+    dry = consolidate.backfill_links(store, text_backend, dry_run=True)
+    assert dry["links_added"] >= 1 and dry["dry_run"] is True
+    # dry run mutated nothing
+    assert all(not memory._read_entry(store, p).links for p in store.iter_entries())
+
+    applied = consolidate.backfill_links(store, text_backend, dry_run=False)
+    assert applied["links_added"] >= 1
+    linked = [memory._read_entry(store, p) for p in store.iter_entries()]
+    assert any(e.links for e in linked)  # orphans healed
+
+
+def test_rescope_repo(store, generic, text_backend):
+    memory.save(store, generic, type_="Decision", title="Mislabeled", body="x", repo="obsidian_mcp")
+    memory.save(store, generic, type_="Decision", title="Versioned", body="y", repo="0.1.6")
+    memory.save(store, generic, type_="Decision", title="Genuine vault", body="z", repo="Life-e-Jeevana")
+    match = lambda r: r == "obsidian_mcp" or consolidate.is_version_repo(r)
+    dry = consolidate.rescope_repo(store, match=match, to="engram", dry_run=True)
+    assert dry["changed"] == 2 and memory.read(store, "Mislabeled").repo == "obsidian_mcp"  # dry: unchanged
+    rep = consolidate.rescope_repo(store, match=match, to="engram", dry_run=False)
+    assert rep["changed"] == 2
+    assert memory.read(store, "Mislabeled").repo == "engram"        # cwd-mislabel fixed
+    assert memory.read(store, "Versioned").repo == "engram"         # version garbage fixed
+    assert memory.read(store, "Genuine vault").repo == "Life-e-Jeevana"  # untouched
+
+
+def test_prune_dangling_links(store, generic, text_backend):
+    import engram.core.frontmatter as fm
+    memory.save(store, generic, type_="Decision", title="Real target", body="real")
+    r = memory.save(store, generic, type_="Decision", title="Has dangling", body="x",
+                    links=["Real target", "Ghost note that was forgotten"])
+    # one valid + one dangling link
+    assert len(memory.read(store, "Has dangling").links) == 2
+    dry = consolidate.prune_dangling_links(store, dry_run=True)
+    assert dry["removed"] == 1 and len(memory.read(store, "Has dangling").links) == 2  # dry: untouched
+    rep = consolidate.prune_dangling_links(store, dry_run=False)
+    assert rep["removed"] == 1
+    links = memory.read(store, "Has dangling").links
+    assert links == ["Real target"]  # dangling removed, valid kept
+
+
 def test_capture_dedup_can_be_disabled(store, generic, text_backend, monkeypatch):
     memory.save(store, generic, type_="Decision", title="Use Redis for cache",
                 body="we use redis as the session cache layer", search_backend=text_backend)
