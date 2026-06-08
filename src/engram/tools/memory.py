@@ -185,10 +185,12 @@ def register(mcp: FastMCP, deps: Deps) -> None:
         without writing — review it, then call with dry_run=False to apply."""
         from engram.core import consolidate
         links = consolidate.backfill_links(deps.store, deps.search_backend, dry_run=dry_run)
+        capped = consolidate.cap_links(deps.store, dry_run=dry_run)
         dangling = consolidate.prune_dangling_links(deps.store, dry_run=dry_run)
         if not dry_run:
             try:
                 deps.search_backend.reindex_all(deps.store)
             except Exception:
                 pass
-        return {"backfill_links": links, "prune_dangling": dangling, "dry_run": dry_run}
+        return {"backfill_links": links, "cap_links": capped,
+                "prune_dangling": dangling, "dry_run": dry_run}

@@ -138,6 +138,29 @@ def test_backfill_links_heals_orphans(store, generic, text_backend):
     assert any(e.links for e in linked)  # orphans healed
 
 
+def test_backfill_links_is_convergent(store, generic, text_backend):
+    # repeat runs must NOT keep adding links (the over-linking bug)
+    memory.save(store, generic, type_="Decision", title="Use Redis for cache",
+                body="we use redis for the session cache layer")
+    memory.save(store, generic, type_="Gotcha", title="Redis eviction surprises",
+                body="redis cache eviction can drop session keys for sessions")
+    memory.save(store, generic, type_="Convention", title="Redis cluster note",
+                body="redis cluster for the session cache and failover handling")
+    consolidate.backfill_links(store, text_backend, dry_run=False)
+    second = consolidate.backfill_links(store, text_backend, dry_run=False)
+    assert second["links_added"] == 0          # convergent
+    for p in store.iter_entries():
+        assert len(memory._read_entry(store, p).links or []) <= 3   # capped
+
+
+def test_cap_links(store, generic):
+    memory.save(store, generic, type_="Decision", title="Many links", body="x",
+                links=["A", "B", "C", "D", "E"])
+    rep = consolidate.cap_links(store, max_links=3, dry_run=False)
+    assert rep["trimmed"] == 2
+    assert memory.read(store, "Many links").links == ["A", "B", "C"]
+
+
 def test_rescope_repo(store, generic, text_backend):
     memory.save(store, generic, type_="Decision", title="Mislabeled", body="x", repo="obsidian_mcp")
     memory.save(store, generic, type_="Decision", title="Versioned", body="y", repo="0.1.6")

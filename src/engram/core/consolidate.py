@@ -163,8 +163,12 @@ def backfill_links(store: "Store", backend: "SearchBackend | None", *,
     report = {"scanned": len(ents), "nodes_linked": 0, "links_added": 0,
               "dry_run": dry_run, "examples": []}
     for e in ents:
+        existing = list(e.links or [])
+        need = max_links - len(existing)
+        if need <= 0:
+            continue  # already at the cap → CONVERGENT (repeat runs add nothing)
         rel = related(store, backend, title=e.title, body=e.body,
-                      exclude_titles=tuple(e.links or ()), max_links=max_links)
+                      exclude_titles=tuple(existing), max_links=need)
         if not rel:
             continue
         added = len(rel) if dry_run else _add_links(store, e.rel_path, rel)
@@ -197,6 +201,28 @@ def rescope_repo(store: "Store", *, match, to: str | None, dry_run: bool = True)
 
 def is_version_repo(repo: str) -> bool:
     return bool(_VERSION_RE.match(repo or ""))
+
+
+def cap_links(store: "Store", *, max_links: int = 4, dry_run: bool = True) -> dict:
+    """Trim any node with more than ``max_links`` links down to the first that many
+    (preserves originals + earliest related). Repairs over-dense graphs."""
+    report = {"trimmed": 0, "nodes": 0, "dry_run": dry_run}
+    for p in store.iter_entries():
+        e = memory._read_entry(store, p)
+        if not e.links or len(e.links) <= max_links:
+            continue
+        keep = e.links[:max_links]
+        report["nodes"] += 1
+        report["trimmed"] += len(e.links) - len(keep)
+        if not dry_run:
+            meta, body = fm.parse(store.read(e.rel_path))
+            seq = fm.CommentedSeq()
+            for l in keep:
+                seq.append(fm.wikilink(l))
+            meta["links"] = seq
+            store.write(e.rel_path, fm.dump(meta, body),
+                        snapshot_message=f"cap links {e.rel_path}")
+    return report
 
 
 def prune_dangling_links(store: "Store", *, dry_run: bool = True) -> dict:

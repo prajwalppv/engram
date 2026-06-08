@@ -7,6 +7,17 @@ All notable changes to **engram** are documented here. The format follows
 ## [Unreleased]
 - Team sharing (opt-in, redacted) over the dormant `visibility` axis.
 
+## [0.12.1] — 2026-06-07
+### Fixed
+- **`backfill_links` was not convergent** — because `related()` excludes existing
+  links, each run found *different* neighbors and kept adding up to `max_links`
+  *more*, so repeated runs over-densified the graph (caught by re-running it: a
+  store at 0 orphans still gained +350 links). Now it tops up to `max_links`
+  **total** per node and converges (a second run adds 0). Idempotency test added.
+- Added `cap_links` (and folded it into the `memory_backfill` tool) to trim
+  already-over-dense nodes back to the cap. Repaired the maintainer's store
+  (771 links / max 9 per node → 482 / max 4) with no loss of orphans-healed state.
+
 ## [0.12.0] — 2026-06-07
 General repo attribution — the real fix for mis-scoped memories (replaces the
 cwd-only heuristic and the engram-specific env pin). A memory belongs to the
