@@ -80,6 +80,44 @@ def test_capture_merges_near_duplicate(store, generic, text_backend, monkeypatch
     assert memory.read(store, "Blue-green deploys") is not None
 
 
+# ---------------------------------------------------------------- auto-linking
+def test_related_links_related_not_unrelated(store, generic, text_backend):
+    memory.save(store, generic, type_="Decision", title="Use Redis for cache",
+                body="we use redis for the session cache layer", search_backend=text_backend)
+    # related (shares topic, below dedup) → linked
+    rel = consolidate.related(store, text_backend, title="Redis eviction",
+                              body="redis cache eviction policy for sessions")
+    assert "Use Redis for cache" in rel
+    # unrelated → no link
+    none = consolidate.related(store, text_backend, title="Billing",
+                               body="store money as integer cents in postgres")
+    assert none == []
+
+
+def test_related_excludes_self_and_near_dups(store, generic, text_backend):
+    memory.save(store, generic, type_="Decision", title="Use Redis for cache",
+                body="we use redis for the session cache layer", search_backend=text_backend)
+    # a near-DUP (very high overlap) is not a "related" link — it would merge instead
+    rel = consolidate.related(store, text_backend, title="Cache via Redis",
+                              body="we use redis for the session cache layer")
+    assert "Use Redis for cache" not in rel
+
+
+def test_capture_autolinks_new_node(store, generic, text_backend, monkeypatch):
+    memory.save(store, generic, type_="Decision", title="Use Redis for cache",
+                body="we use redis for the session cache layer", search_backend=text_backend)
+
+    def fake_items(store_, settings_, text_, *, role, repo):
+        return [{"type": "Gotcha", "title": "Redis eviction surprises",
+                 "body": "redis cache eviction can drop session keys unexpectedly"}]
+    monkeypatch.setattr(summarizer, "summarize_session", fake_items)
+
+    capture.capture_session(store, Settings(), transcript_text="user: x\n\nassistant: y",
+                            repo="svc", search_backend=text_backend)
+    g = memory.read(store, "Redis eviction surprises")
+    assert "Use Redis for cache" in (g.links or [])   # cross-type relatedness link
+
+
 def test_capture_dedup_can_be_disabled(store, generic, text_backend, monkeypatch):
     memory.save(store, generic, type_="Decision", title="Use Redis for cache",
                 body="we use redis as the session cache layer", search_backend=text_backend)

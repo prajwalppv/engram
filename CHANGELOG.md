@@ -7,6 +7,27 @@ All notable changes to **engram** are documented here. The format follows
 ## [Unreleased]
 - Team sharing (opt-in, redacted) over the dormant `visibility` axis.
 
+## [0.10.0] — 2026-06-07
+Foundation depth — a grounded audit of a real 121-note store found the advanced
+machinery (scope ladder, graph expansion) was running on weak capture-time metadata:
+**49% of nodes were orphans** and **repo labels were corrupted** (a version string
+`"0.1.6"` filed as a repo; cross-project mislabeling). This enriches what capture
+writes so the machinery has real signal.
+### Added — auto-linking (the graph becomes load-bearing)
+- At capture, a new memory is auto-linked to its **related** existing neighbors —
+  the band below near-duplicate (which merge) and above unrelated, **cross-type**
+  on purpose (a Decision links to the Gotcha about the same thing). Reuses the
+  `find_similar` infra. Graph-expansion recall finally has edges to traverse, and
+  orphan rate drops on both ends of each link. Toggle: `ENGRAM_AUTOLINK_ON_CAPTURE`.
+- New eval gate `score_autolink` (link precision ≥ 0.8 — spurious links pollute the
+  graph) + unit and capture-integration tests.
+### Fixed — repo scoping no longer corrupted
+- `_repo_of` now resolves the **git repository root** (stable across subdirs and
+  plugin-cache cwds) and **rejects version-string garbage** (`0.1.6`, `v1.2.3`), so
+  the scope ladder isn't poisoned by junk repo labels. Regression tests added.
+  (Existing mislabeled data isn't auto-migrated — too risky to reclassify; new
+  captures are clean and old labels age out.)
+
 ## [0.9.0] — 2026-06-07
 Capture quality — the "noisy heart." Auto-capture restates the same fact across
 sessions, so the graph slowly fills with near-duplicate nodes. It now merges them.

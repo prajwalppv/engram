@@ -159,6 +159,26 @@ def test_dedup_precision_gate(store, generic, text_backend):
     assert d["recall"] >= 0.66, d
 
 
+# --------------------------------------------------------------- autolink gate
+def test_autolink_gate(store, generic, text_backend):
+    _save(store, generic, "Use Redis for cache",
+          "we use redis for the session cache layer", type_="Decision", search_backend=text_backend)
+    _save(store, generic, "Postgres for billing",
+          "store money as integer cents in postgres with transactions",
+          type_="Decision", search_backend=text_backend)
+    cases = [
+        {"title": "Redis eviction", "links_to": "Use Redis for cache",
+         "body": "redis cache eviction policy for sessions"},
+        {"title": "Money rounding", "links_to": "Postgres for billing",
+         "body": "store money as integer cents to avoid float rounding"},
+        {"title": "Deploy windows", "links_to": None,
+         "body": "deploy only during business hours on weekdays"},
+    ]
+    a = ev.score_autolink(store, text_backend, cases)
+    assert a["precision"] >= 0.8, a   # spurious links pollute the graph
+    assert a["recall"] >= 0.5, a      # but orphans are the disease — catch real links
+
+
 # --------------------------------------------------------------- extraction gate
 def test_extraction_coverage_gate(generic):
     # Deterministic floor using the heuristic summarizer as the extract_fn (no LLM

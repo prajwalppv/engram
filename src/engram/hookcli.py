@@ -27,10 +27,30 @@ def _read_hook_input() -> dict:
         return {}
 
 
+import re as _re
+import subprocess as _subprocess
+
+_VERSION_RE = _re.compile(r"^v?\d+(\.\d+)+$")  # "0.1.6", "v1.2.3" — a version, not a repo
+
+
 def _repo_of(cwd: str | None) -> str | None:
+    """Best repo label for ``cwd``. Resolves the git repository ROOT (stable across
+    subdirs and plugin-cache dirs whose raw basename is a version like "0.1.6"), and
+    rejects version-string garbage so the scope ladder isn't corrupted by junk repos."""
     if not cwd:
         return None
-    return Path(cwd).name or None
+    name = Path(cwd).name
+    try:
+        r = _subprocess.run(["git", "-C", cwd, "rev-parse", "--show-toplevel"],
+                            capture_output=True, text=True, timeout=2)
+        if r.returncode == 0 and r.stdout.strip():
+            name = Path(r.stdout.strip()).name
+    except Exception:
+        pass
+    name = (name or "").strip()
+    if not name or _VERSION_RE.match(name):
+        return None  # version string / empty → no usable repo (better than a junk scope)
+    return name
 
 
 def _store_and_settings():

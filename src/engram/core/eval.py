@@ -230,6 +230,27 @@ def score_dedup(store: Store, backend, cases: list[dict]) -> dict:
     }
 
 
+def score_autolink(store: Store, backend, cases: list[dict]) -> dict:
+    """Auto-link quality. Store pre-seeded; each case {title, body, links_to: title|None}
+    expects related() to link to ``links_to`` (or to nothing). A spurious link pollutes
+    the graph, so precision matters — but recall matters too (orphans are the disease)."""
+    from . import consolidate
+    tp = fp = fn = tn = 0
+    for c in cases:
+        got = consolidate.related(store, backend, title=c["title"], body=c["body"])
+        exp = c.get("links_to")
+        if exp:
+            tp += int(exp in got); fn += int(exp not in got)
+        else:
+            fp += int(bool(got)); tn += int(not got)
+    return {
+        "n": len(cases),
+        "precision": round(tp / (tp + fp), 3) if (tp + fp) else 1.0,
+        "recall": round(tp / (tp + fn), 3) if (tp + fn) else 1.0,
+        "tp": tp, "fp": fp, "fn": fn, "tn": tn,
+    }
+
+
 def score_feedback_loop(store: Store, backend, *, query: str, used_id: str,
                         unused_id: str, limit: int = 10) -> dict:
     """The loop must reweight: a memory acted on (used/read) should rank ABOVE an

@@ -86,3 +86,40 @@ def near_duplicate(store: "Store", backend: "SearchBackend | None", *,
         if lex >= lex_threshold or sem_ok:
             return ent
     return None
+
+
+def related(store: "Store", backend: "SearchBackend | None", *, title: str, body: str,
+            exclude_titles: tuple[str, ...] = (), max_links: int = 3,
+            lex_min: float = 0.25, lex_max: float = 0.7,
+            sem_min: float = 0.55, sem_max: float = 0.88, limit: int = 8) -> list[str]:
+    """Titles of existing memories a new (title, body) is RELATED to — the band
+    *below* near-duplicate (those merge) but above unrelated. Cross-type on purpose:
+    a Decision and the Gotcha about the same thing should link. Auto-linking these at
+    capture turns a graph of orphans into a load-bearing one (graph-expansion recall).
+    """
+    text = f"{title}\n\n{body}"
+    try:
+        cands = backend.find_similar(text, limit=limit) if backend else []
+    except Exception:
+        cands = []
+    is_semantic = backend.__class__.__name__ == "SemanticSearchBackend"
+    new_tok = _tokens(_clean_body(body))
+    excl = {fm.sanitize_title(t) for t in exclude_titles}
+    excl.add(fm.sanitize_title((title or "").strip()))
+    out: list[str] = []
+    for h in cands:
+        try:
+            ent = memory.read(store, h.rel_path)
+        except Exception:
+            continue
+        st = fm.sanitize_title((ent.title or "").strip())
+        if st in excl:
+            continue
+        lex = jaccard(new_tok, _tokens(_clean_body(ent.body)))
+        sem = (h.score or 0.0) if is_semantic else 0.0
+        if (lex_min <= lex < lex_max) or (is_semantic and sem_min <= sem < sem_max):
+            out.append(ent.title)
+            excl.add(st)
+            if len(out) >= max_links:
+                break
+    return out

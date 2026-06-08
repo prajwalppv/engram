@@ -143,6 +143,11 @@ type, high body overlap — or high semantic similarity) is appended into that n
 instead of spawning a separate near-dup. Combined with the feedback loop and bonsai
 pruning, the graph compresses noise rather than accumulating it.
 
+**Capture builds the graph.** A new memory is also auto-linked to its *related*
+neighbors (the band below near-duplicate, cross-type on purpose — a Decision links
+to the Gotcha about the same thing), so the wikilink graph is load-bearing and
+graph-expansion recall has real edges to traverse, instead of a pile of orphans.
+
 ## Recall, privacy & provenance
 - **Recall that learns (the feedback loop).** engram tracks which recalled memories
   were actually acted on — explicitly marked used, or whose body you fetched after

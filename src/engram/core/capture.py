@@ -57,24 +57,40 @@ def capture_session(
     items = summarizer.summarize_session(
         store, settings, transcript_text, role=role, repo=repo)
     dedup = getattr(settings, "dedup_on_capture", True)
+    autolink = getattr(settings, "autolink_on_capture", True)
     for it in items:
         title = it["title"]
-        # Near-duplicate consolidation: if this restates an existing node, save under
-        # THAT title so memory.save appends (merges) instead of spawning a near-dup.
-        if dedup:
+        links = list(it.get("links") or [])
+        merged = False
+        if dedup or autolink:
             try:
                 from . import consolidate
-                dup = consolidate.near_duplicate(
-                    store, search_backend, title=title, body=it["body"], type_=it["type"],
-                    lex_threshold=getattr(settings, "dedup_lex_threshold", 0.7),
-                    sem_threshold=getattr(settings, "dedup_sem_threshold", 0.88))
-                if dup is not None:
-                    title = dup.title
             except Exception:
-                pass
+                consolidate = None
+            # Near-duplicate consolidation: if this restates an existing node, save
+            # under THAT title so memory.save appends (merges) — no near-dup spawned.
+            if dedup and consolidate is not None:
+                try:
+                    dup = consolidate.near_duplicate(
+                        store, search_backend, title=title, body=it["body"], type_=it["type"],
+                        lex_threshold=getattr(settings, "dedup_lex_threshold", 0.7),
+                        sem_threshold=getattr(settings, "dedup_sem_threshold", 0.88))
+                    if dup is not None:
+                        title, merged = dup.title, True
+                except Exception:
+                    pass
+            # Auto-link a genuinely NEW node to its related neighbors so the graph
+            # becomes load-bearing (graph-expansion recall) instead of all orphans.
+            if autolink and not merged and consolidate is not None:
+                try:
+                    links += consolidate.related(store, search_backend,
+                                                 title=title, body=it["body"], exclude_titles=tuple(links))
+                    links = list(dict.fromkeys(links))
+                except Exception:
+                    pass
         res = memory.save(
             store, role, type_=it["type"], title=title, body=it["body"],
-            repo=repo, tags=it.get("tags"), links=it.get("links"),
+            repo=repo, tags=it.get("tags"), links=links or None,
             session_id=session_id, search_backend=search_backend,
         )
         results.append(res)

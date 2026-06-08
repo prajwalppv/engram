@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     dedup_on_capture: bool = Field(default=True)
     dedup_lex_threshold: float = Field(default=0.7)   # token-Jaccard floor to merge
     dedup_sem_threshold: float = Field(default=0.88)  # cosine floor (semantic backend)
+    # Auto-link a new memory to related neighbors at capture, so the graph is
+    # load-bearing (graph-expansion recall) instead of a pile of orphans.
+    autolink_on_capture: bool = Field(default=True)
 
     # --- proactive guardrails (PreToolUse) -----------------------------------
     proactive: bool = Field(default=True)            # surface a relevant memory before a risky tool runs
