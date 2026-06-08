@@ -169,6 +169,17 @@ def score_preference_detection(cases: list[dict]) -> dict:
     }
 
 
+def score_redaction(store: Store, settings, cases: list[dict]) -> dict:
+    """Privacy gate: a secret wrapped in <private>…</private> must NEVER appear in any
+    persisted memory after capture. Each case: {transcript, secret}. leaks MUST be 0."""
+    from . import capture, memory
+    for c in cases:
+        capture.capture_session(store, settings, transcript_text=c["transcript"])
+    bodies = "\n".join(memory._read_entry(store, p).body for p in store.iter_entries())
+    leaks = sum(1 for c in cases if c["secret"] in bodies)
+    return {"n": len(cases), "leaks": leaks, "clean": leaks == 0}
+
+
 def score_role_inference(cases: list[dict]) -> dict:
     """Role-inference accuracy. Each case: {text, expected_role}. Uses the signal
     distribution (argmax), so it grades the role ontologies' signal terms statelessly."""

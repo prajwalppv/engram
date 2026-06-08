@@ -177,3 +177,23 @@ def test_temporal_currency_gate(store, generic, text_backend):
     cases = [{"query": "how do we deploy the release", "current_id": new.id, "stale_id": old.id}]
     r = ev.score_temporal_currency(store, text_backend, cases)
     assert r["currency"] == 1.0, r            # current surfaces, retired never does
+
+
+# ------------------------------------------------------------- redaction gate
+def test_redaction_gate(store):
+    from engram.config import Settings
+    from engram.core import memory as _m
+    settings = Settings(summarizer="heuristic", redact_private=True)
+    cases = [
+        {"transcript": "user: we decided to deploy via blue-green for zero downtime. "
+                       "aws key <private>AKIA-SECRET-7788</private> remember the deploy decision",
+         "secret": "AKIA-SECRET-7788"},
+        {"transcript": "user: always run the tests before pushing. "
+                       "token <PRIVATE>hunter2zzz-token</private> thanks",
+         "secret": "hunter2zzz-token"},
+    ]
+    r = ev.score_redaction(store, settings, cases)
+    assert r["clean"] is True and r["leaks"] == 0, r
+    # non-vacuous: capture actually happened (so the gate is meaningful)
+    bodies = "\n".join(_m._read_entry(store, p).body for p in store.iter_entries())
+    assert bodies.strip(), "nothing captured — redaction gate would be vacuous"

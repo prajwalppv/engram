@@ -26,6 +26,12 @@ def capture_session(
     session_id: str | None = None,
     search_backend: "SearchBackend | None" = None,
 ) -> list["SaveResult"]:
+    # Strip user-marked <private> spans BEFORE anything reads the transcript —
+    # role inference, summarizer, preference/procedure detection, and the index all
+    # see only the redacted text, so marked secrets never reach the store.
+    if getattr(settings, "redact_private", True):
+        from . import redact
+        transcript_text = redact.strip_private(transcript_text)
     if not transcript_text or not transcript_text.strip():
         return []
     # Update the inferred role from this session, then extract memory with it.
@@ -95,7 +101,11 @@ def capture_delta(
     if getattr(settings, "working_memory", True):
         try:
             from . import working
-            working.update(store, session_id, events, repo)
+            wevents = events
+            if getattr(settings, "redact_private", True):
+                from . import redact
+                wevents = [{**e, "text": redact.strip_private(e["text"])} for e in events]
+            working.update(store, session_id, wevents, repo)
         except Exception:
             pass
     new_user_turns = sum(1 for e in delta if e["role"] == "user")
