@@ -1,8 +1,6 @@
 """Phase 1 horizons — preferences / always-on layer."""
 from __future__ import annotations
 
-from pathlib import Path
-
 from engram.core import claudemd, memory, preferences, prune, vigor
 from engram.config import Settings
 
@@ -57,8 +55,8 @@ def test_detect_keeps_legit_prefs_that_mention_paths():
         assert preferences.detect("user: " + t) == [t], t
 
 
-def test_read_transcript_excludes_tool_results():
-    import json, tempfile, os
+def test_read_transcript_excludes_tool_results(tmp_path):
+    import json
     from engram.core import ingest
     lines = [
         {"type": "user", "message": {"role": "user", "content": "always use uv"}},
@@ -68,12 +66,9 @@ def test_read_transcript_excludes_tool_results():
             {"type": "text", "text": "done"},
             {"type": "tool_use", "name": "Bash", "input": {"command": "ls"}}]}},
     ]
-    p = tempfile.mktemp(suffix=".jsonl")
-    Path(p).write_text("\n".join(json.dumps(x) for x in lines), encoding="utf-8")
-    try:
-        ev = ingest.read_transcript(p)
-    finally:
-        os.remove(p)
+    p = tmp_path / "transcript.jsonl"
+    p.write_text("\n".join(json.dumps(x) for x in lines), encoding="utf-8")
+    ev = ingest.read_transcript(str(p))
     texts = [e["text"] for e in ev]
     assert "always use uv" in texts
     assert "done" in texts
