@@ -37,7 +37,8 @@ class MemoryHit(BaseModel):
     title: str
     type: str | None = None
     score: float = 0.0
-    snippet: str | None = None
+    snippet: str | None = None       # bounded preview so the agent can judge a hit
+    created: str | None = None       # capture date — an age signal for staleness
     repo: str | None = None
 
 

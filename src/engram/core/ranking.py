@@ -124,5 +124,11 @@ def hybrid_recall(store: "Store", search_backend: "SearchBackend", query: str, *
                 scored[n.rel_path] = (sc * GRAPH_DECAY, n)
 
     ranked = sorted(scored.values(), key=lambda se: se[0], reverse=True)[:limit]
+    # Carry a bounded snippet + capture date so the compact index is self-sufficient:
+    # the agent judges relevance (and staleness) from the hit, fetching the full body
+    # via memory_read only for the ones it actually needs (progressive disclosure).
     return [MemoryHit(id=e.id, rel_path=e.rel_path, title=e.title, type=e.type,
-                      repo=e.repo, score=round(float(s), 6)) for s, e in ranked]
+                      repo=e.repo, score=round(float(s), 6),
+                      snippet=memory.snippet(e.body),
+                      created=str(e.frontmatter.get("created") or "") or None)
+            for s, e in ranked]

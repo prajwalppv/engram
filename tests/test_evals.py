@@ -138,3 +138,42 @@ def test_extraction_coverage_gate(generic):
     ]
     coverage = ev.score_extraction("(prompt unused by heuristic)", cases, extract_fn)
     assert coverage >= 0.5, coverage
+
+
+# ----------------------------------------------------- token-frugal recall gate
+def test_recall_compactness_gate(store, generic, text_backend):
+    from engram.core import memory as _m
+    facts = [
+        ("Use Postgres", "we chose multi-row transactions for the cart checkout flow"),
+        ("Stripe webhook idempotency", "dedupe on the event id to avoid a double charge"),
+        ("Money in cents", "store currency amounts as integer cents, never floats"),
+        ("Blue-green deploys", "ship with blue-green to avoid downtime on release"),
+    ]
+    for t, b in facts:
+        _save(store, generic, t, b, type_="Decision")
+    cases = [{"query": "database transactions"}, {"query": "avoid double charge"},
+             {"query": "currency amounts"}, {"query": "release without downtime"}]
+    r = ev.score_recall_compactness(store, text_backend, cases, max_snippet=_m.SNIPPET_CHARS)
+    assert r["n"] > 0, r
+    assert r["snippet_coverage"] >= 0.95, r   # the agent can judge a hit without reading it
+    assert r["created_coverage"] >= 0.95, r   # age signal present for staleness judgement
+    assert r["bounded_rate"] == 1.0, r        # never blow the token budget
+    assert r["longest_snippet"] <= _m.SNIPPET_CHARS, r
+
+
+# ------------------------------------------------------------ temporal currency gate
+def test_temporal_currency_gate(store, generic, text_backend):
+    from engram.core import memory as _m
+    old = _m.save(store, generic, type_="Decision", title="Deploy method",
+                  body="we deploy by manually scp-ing the release tarball to the server",
+                  search_backend=text_backend)
+    new = _m.save(store, generic, type_="Decision", title="Deploy method current",
+                  body="we deploy via blue-green automated rollout, no manual scp tarball",
+                  supersedes=["Deploy method"], search_backend=text_backend)
+    # the retired fact keeps its content but gains a DATED retirement back-reference
+    retired = _m.read(store, "Deploy method")
+    assert retired.frontmatter.get("superseded_by"), retired.frontmatter
+    assert retired.frontmatter.get("superseded_on"), retired.frontmatter
+    cases = [{"query": "how do we deploy the release", "current_id": new.id, "stale_id": old.id}]
+    r = ev.score_temporal_currency(store, text_backend, cases)
+    assert r["currency"] == 1.0, r            # current surfaces, retired never does

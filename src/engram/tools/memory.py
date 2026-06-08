@@ -88,6 +88,12 @@ def register(mcp: FastMCP, deps: Deps) -> None:
 
         Call this at the start of work to surface prior decisions/gotchas/context.
 
+        Returns a COMPACT INDEX — each hit has a bounded `snippet` and a `created`
+        date, but NOT the full body. Judge relevance from the snippet and fetch the
+        full body with `memory_read(id)` only for the hits you actually need
+        (progressive disclosure — keeps recall token-cheap). `created` is an age
+        signal: prefer the most recent when two hits seem to contradict.
+
         Args:
             query: What you're working on / looking for.
             repo: Restrict to a project.

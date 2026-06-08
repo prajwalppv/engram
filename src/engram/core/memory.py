@@ -26,6 +26,23 @@ def _today() -> str:
     return datetime.date.today().isoformat()
 
 
+# Compact-index budget: a recall hit carries a bounded preview so the agent can
+# judge relevance WITHOUT a follow-up memory_read of every hit (progressive
+# disclosure — index first, full body on demand). Kept short on purpose.
+SNIPPET_CHARS = 160
+
+
+def snippet(body: str, n: int = SNIPPET_CHARS) -> str:
+    """First meaningful prose line of a memory body, whitespace-collapsed and
+    truncated. Skips the heading (#), dated stamp (**…**), and meta (_…_) lines."""
+    for ln in (body or "").splitlines():
+        s = ln.strip()
+        if s and not s.startswith(("#", "_", "**")):
+            s = " ".join(s.split())
+            return s if len(s) <= n else s[: n - 1].rstrip() + "…"
+    return ""
+
+
 def _id_for(folder: str, title: str) -> str:
     t = fm.sanitize_title(title)
     return f"{folder}/{t}" if folder else t
@@ -105,6 +122,30 @@ def read(store: Store, identifier: str) -> MemoryEntry:
     return _read_entry(store, p)
 
 
+def _retire(store: Store, titles: list[str], *, by: str) -> None:
+    """Stamp each superseded note with a DATED retirement back-reference
+    (``superseded_by`` / ``superseded_on``). Content is kept — the journey is
+    preserved — and recall already drops superseded titles, so the *current* fact
+    surfaces while history stays traceable. This is the bitemporal record."""
+    by_key = fm.sanitize_title(by)
+    for t in titles:
+        if fm.sanitize_title(str(t)) == by_key:
+            continue  # never retire self
+        p = find_path(store, str(t))
+        if p is None:
+            continue
+        try:
+            meta, body = fm.parse(store.read(p))
+            if str(meta.get("superseded_by") or "") == by:
+                continue  # idempotent
+            meta["superseded_by"] = by
+            meta["superseded_on"] = _today()
+            rel = store.relpath(p)
+            store.write(rel, fm.dump(meta, body), snapshot_message=f"retire {rel}")
+        except Exception:
+            continue
+
+
 def save(
     store: Store,
     role: "Role",
@@ -158,6 +199,8 @@ def save(
                 search_backend.index_note(ent)
             except Exception:
                 pass
+        if supersedes:
+            _retire(store, supersedes, by=title)
         return SaveResult(id=ent.id, rel_path=rel, action="appended", backup_rel_path=backup)
 
     rel = f"{folder}/{fm.sanitize_title(title)}.md" if folder else f"{fm.sanitize_title(title)}.md"
@@ -185,6 +228,8 @@ def save(
             search_backend.index_note(ent)
         except Exception:
             pass
+    if supersedes:
+        _retire(store, supersedes, by=title)
     return SaveResult(id=ent.id, rel_path=rel, action="created", backup_rel_path=backup)
 
 

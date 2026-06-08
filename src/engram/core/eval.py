@@ -32,6 +32,46 @@ def score_recall(store: Store, search_backend: SearchBackend,
     return {"n": n, "mrr": round(rr_sum / n, 3), "recall_at_k": round(hit / n, 3), "k": k}
 
 
+def score_recall_compactness(store: Store, search_backend: SearchBackend,
+                             cases: list[dict], *, max_snippet: int, k: int = 8) -> dict:
+    """Token-frugality of the compact index: every hit should carry a bounded,
+    non-empty snippet (so the agent can judge it WITHOUT a full read) and never the
+    full body. Returns snippet coverage, bounded-rate, and the longest snippet seen."""
+    from . import memory
+    total = with_snip = bounded = with_created = 0
+    longest = 0
+    for c in cases:
+        for h in memory.recall(store, search_backend, c["query"], limit=k):
+            total += 1
+            sn = h.snippet or ""
+            with_snip += int(bool(sn))
+            with_created += int(bool(h.created))
+            bounded += int(len(sn) <= max_snippet)
+            longest = max(longest, len(sn))
+            # a compact hit must NOT carry a full body field
+            assert not getattr(h, "body", None), "recall hit leaked a full body"
+    return {"n": total,
+            "snippet_coverage": round(with_snip / total, 3) if total else 1.0,
+            "created_coverage": round(with_created / total, 3) if total else 1.0,
+            "bounded_rate": round(bounded / total, 3) if total else 1.0,
+            "longest_snippet": longest}
+
+
+def score_temporal_currency(store: Store, search_backend: SearchBackend,
+                            cases: list[dict], *, k: int = 8) -> dict:
+    """Temporal correctness: given a fact that SUPERSEDES an older one, recall must
+    surface the current fact and drop the retired one. Each case:
+    {query, current_id, stale_id}."""
+    from . import memory
+    if not cases:
+        return {"n": 0, "currency": 1.0}
+    ok = 0
+    for c in cases:
+        ids = [h.id for h in memory.recall(store, search_backend, c["query"], limit=k)]
+        ok += int(c["current_id"] in ids and c["stale_id"] not in ids)
+    return {"n": len(cases), "currency": round(ok / len(cases), 3)}
+
+
 def _query_from(entry) -> str:
     """A query proxy derived from a note's BODY (not its title), so self-retrieval
     tests the embedding/index rather than a trivial title match."""
