@@ -44,6 +44,35 @@ def backlinks(store: Store, identifier: str) -> list[LinkRef]:
     return refs
 
 
+def provenance(store: Store, identifier: str) -> dict:
+    """Why is this memory here? Composes its ORIGIN (when, which session, which
+    role/scope), its TEMPORAL lineage (what it retired, and whether/when it was
+    itself retired), and its GRAPH context (links + backlinks). Powers /engram:why."""
+    ent = memory.read(store, identifier)
+    fmd = ent.frontmatter
+    superseded_by = fmd.get("superseded_by")
+    def _name(rel: str | None) -> str:
+        rel = rel or ""
+        return fm.sanitize_title(rel.rsplit("/", 1)[-1][:-3]) if rel.endswith(".md") else rel
+    return {
+        "id": ent.id,
+        "title": ent.title,
+        "type": ent.type,
+        "horizon": ent.horizon,
+        "scope": ent.scope,
+        "repo": ent.repo,
+        "role": ent.role,
+        "created": str(fmd.get("created") or "") or None,
+        "source_session": str(fmd.get("source_session") or "") or None,
+        "supersedes": list(ent.supersedes),                      # facts THIS one retired
+        "superseded_by": str(superseded_by) if superseded_by else None,
+        "superseded_on": str(fmd.get("superseded_on") or "") or None,
+        "retired": bool(superseded_by),                          # is this the stale one now?
+        "links": [l.target for l in outgoing_links(store, identifier)],
+        "backlinks": [_name(b.source_rel_path) for b in backlinks(store, identifier)],
+    }
+
+
 def neighborhood(store: Store, identifier: str, *, depth: int = 1) -> list[str]:
     """Titles of memories within ``depth`` hops (out + back) of the given one."""
     frontier = {fm.sanitize_title(identifier)}

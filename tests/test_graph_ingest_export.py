@@ -80,3 +80,26 @@ class _Stdin:
 
     def read(self) -> str:
         return self._data
+
+
+def test_provenance_origin_and_temporal_lineage(store, swe, text_backend):
+    memory.save(store, swe, type_="Decision", title="DB choice",
+                body="we use sqlite for storage", session_id="sess-1",
+                search_backend=text_backend)
+    new = memory.save(store, swe, type_="Decision", title="DB choice current",
+                      body="we moved to postgres now", supersedes=["DB choice"],
+                      links=["DB choice"], session_id="sess-2",
+                      search_backend=text_backend)
+    assert new.action == "created"
+
+    # current fact: origin + what it retired, not itself retired
+    cur = graph.provenance(store, "DB choice current")
+    assert cur["created"] and cur["source_session"] == "sess-2"
+    assert "DB choice" in cur["supersedes"]
+    assert cur["retired"] is False
+
+    # retired fact: dated back-reference to its replacement
+    old = graph.provenance(store, "DB choice")
+    assert old["retired"] is True
+    assert old["superseded_by"] == "DB choice current"
+    assert old["superseded_on"]

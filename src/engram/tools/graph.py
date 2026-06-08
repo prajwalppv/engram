@@ -26,3 +26,17 @@ def register(mcp: FastMCP, deps: Deps) -> None:
             return graph.neighborhood(deps.store, identifier, depth=depth)
         except CoreError as e:
             raise ToolError(str(e)) from e
+
+    @mcp.tool()
+    def memory_why(identifier: str) -> dict:
+        """Provenance of a memory: WHY it's here and whether it's still current.
+
+        Returns its origin (created date, source session, role/scope), its temporal
+        lineage (`supersedes` = what it retired; `superseded_by`/`superseded_on` +
+        `retired` = whether a newer fact replaced it), and its graph context
+        (`links`, `backlinks`). Use it to trust or discount a recalled fact.
+        """
+        try:
+            return graph.provenance(deps.store, identifier)
+        except CoreError as e:
+            raise ToolError(str(e)) from e
