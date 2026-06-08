@@ -75,7 +75,7 @@ def analyze(store: Store, settings: "Settings") -> dict:
     # staleness = ephemeral + old + unused + unreferenced; lowest vigor first.
     stale = [d for d in scored.values()
              if d["ephemeral"] and d["age_days"] >= settings.prune_min_age_days
-             and d["used"] == 0 and d["indegree"] == 0
+             and d["access"] < vigor.PRUNE_ACCESS_FLOOR and d["indegree"] == 0
              and d["entry"].horizon != "preference"]  # preferences are lifelines
     stale.sort(key=lambda d: d["vigor"])
     cap = max(1, int(total * _effective_fraction(store, settings)))

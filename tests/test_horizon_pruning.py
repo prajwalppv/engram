@@ -18,8 +18,8 @@ def test_recency_decays_per_horizon():
                     horizon="semantic", frontmatter={"created": old})
     # same type (same durability) → the only difference is horizon half-life:
     # working scratch has nearly decayed at 10 days; semantic has barely.
-    sw = vigor.score(w, used=0, recall=0, indeg=0, today=today)
-    ss = vigor.score(s, used=0, recall=0, indeg=0, today=today)
+    sw = vigor.score(w, access=0.0, indeg=0, today=today)
+    ss = vigor.score(s, access=0.0, indeg=0, today=today)
     assert ss > sw
     assert vigor.HORIZON_HALFLIFE["preference"] > vigor.HORIZON_HALFLIFE["episodic"] \
         > vigor.HORIZON_HALFLIFE["working"]

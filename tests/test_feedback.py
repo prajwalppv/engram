@@ -30,43 +30,62 @@ def test_record_read_ignores_empty():
     assert vigor.feedback_counts(s) == {}
 
 
-# ---------------------------------------------------------------- usefulness math
-def test_usefulness_ratio():
-    assert vigor.usefulness(used=0, read=0, recall=0) == 0.0          # no data
-    assert vigor.usefulness(used=0, read=0, recall=10) < 0.1          # pure noise
-    assert vigor.usefulness(used=3, read=0, recall=3) > 0.6           # demonstrated
-    assert vigor.usefulness(used=0, read=4, recall=4) > vigor.usefulness(0, 0, 4)
-    assert vigor.usefulness(used=99, read=0, recall=1) == 1.0         # clamped to 1
+# ---------------------------------------------------------------- access model (mem0)
+def test_access_decay_and_boost():
+    now = datetime.datetime.now()
+    fresh = {"count": 5, "used": 0, "read": 0, "last": now.isoformat()}
+    old = {"count": 5, "used": 0, "read": 0,
+           "last": (now - datetime.timedelta(days=28)).isoformat()}  # 2 half-lives
+    # recall IS the access signal; recency decays it (Ebbinghaus)
+    assert vigor.decayed_access(fresh, now) > vigor.decayed_access(old, now)
+    assert abs(vigor.decayed_access(old, now) - 5 * 0.25) < 0.3       # ~2 half-lives → ×0.25
+    assert vigor.decayed_access(None, now) == 0.0                      # no data
+    assert vigor.decayed_access({"count": 0, "used": 0, "read": 0, "last": None}, now) == 0.0
+    # explicit use weighs MORE than a bare recall
+    assert (vigor.decayed_access({"count": 1, "used": 1, "read": 0, "last": now.isoformat()}, now)
+            > vigor.decayed_access({"count": 1, "used": 0, "read": 0, "last": now.isoformat()}, now))
+    # boost saturates in [0, 1) — rich-get-richer guard
+    assert 0 < vigor.recall_boost(fresh, now) < 1
+    assert vigor.recall_boost(None, now) == 0.0
 
 
-# ---------------------------------------------------------------- vigor decays noise
-def test_vigor_rewards_use_and_decays_noise(store, generic):
+def test_vigor_rewards_access(store, generic):
     today = datetime.date.today()
     e = memory.read(store, memory.save(store, generic, type_="SessionSummary",
                                        title="S", body="x", repo="r").rel_path)
-    used_v = vigor.score(e, used=3, recall=3, read=0, indeg=0, today=today)
-    noise_v = vigor.score(e, used=0, recall=10, read=0, indeg=0, today=today)
-    neutral_v = vigor.score(e, used=0, recall=0, read=0, indeg=0, today=today)
-    # acted-on beats untouched beats recalled-but-never-used noise
-    assert used_v > neutral_v > noise_v
+    # an actively-recalled memory scores higher than one nobody recalls
+    assert vigor.score(e, access=8.0, indeg=0, today=today) > \
+           vigor.score(e, access=0.0, indeg=0, today=today)
 
 
 # ---------------------------------------------------------------- ranking reweight
-def test_recall_prefers_used_over_recalled_but_unused(store, generic, text_backend):
-    for t in ("Cache choice A", "Cache choice B"):
+def test_recall_access_alone_reweights(store, generic, text_backend):
+    # THE fix: with NO explicit used/read — just more recall ACCESS — the more-
+    # accessed memory ranks higher. This is the signal that actually fires.
+    for t in ("Cache A", "Cache B"):
         memory.save(store, generic, type_="Decision", title=t,
-                    body="use redis for the session cache layer",
-                    search_backend=text_backend)
-    a = memory.read(store, "Cache choice A").id
-    b = memory.read(store, "Cache choice B").id
-    # both surfaced; only A acted on
-    feedback.record_recall(store, "redis cache", [a, b])
-    feedback.record_signal(store, "used", [a])
-    feedback.record_read(store, [a])
-
+                    body="use redis for the session cache layer", search_backend=text_backend)
+    a = memory.read(store, "Cache A").id
+    b = memory.read(store, "Cache B").id
+    for _ in range(3):
+        feedback.record_recall(store, "redis", [a])   # A accessed 3×
+    feedback.record_recall(store, "redis", [b])        # B accessed 1×
     order = [h.id for h in ranking.hybrid_recall(store, text_backend,
                                                  "redis session cache", limit=5)]
-    assert a in order and b in order
+    assert order.index(a) < order.index(b), order
+
+
+def test_recall_prefers_explicit_use(store, generic, text_backend):
+    for t in ("Cache choice A", "Cache choice B"):
+        memory.save(store, generic, type_="Decision", title=t,
+                    body="use redis for the session cache layer", search_backend=text_backend)
+    a = memory.read(store, "Cache choice A").id
+    b = memory.read(store, "Cache choice B").id
+    feedback.record_recall(store, "redis cache", [a, b])
+    feedback.record_signal(store, "used", [a])   # explicit use is a stronger access
+    feedback.record_read(store, [a])
+    order = [h.id for h in ranking.hybrid_recall(store, text_backend,
+                                                 "redis session cache", limit=5)]
     assert order.index(a) < order.index(b), order
 
 

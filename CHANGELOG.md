@@ -7,6 +7,25 @@ All notable changes to **engram** are documented here. The format follows
 ## [Unreleased]
 - Team sharing (opt-in, redacted) over the dormant `visibility` axis.
 
+## [0.14.0] — 2026-06-08
+Make the feedback loop actually work. A maturity probe found it was **provably
+dead**: over 20 memories with feedback history, `used: 0, read: 0` — the explicit
+signals the loop depended on **never fire** (the agent judges from snippets, never
+calls `memory_read`/`mark_used`). Research (mem0's production Ebbinghaus model;
+RAG implicit-feedback literature) says to use the signal that *does* fire: recall
+**access**, with recency decay.
+### Changed — recall-access feedback model
+- The loop now scores memories by **access frequency × recency decay**
+  (`min(eff, 50) · 0.5^(days_since_last_access / 14)`), where a recall *hit* counts
+  as access (it always fires) and explicit `used`/`read` weigh more (a rarer,
+  higher-confidence act). Replaces the old "recalled-but-not-explicitly-used =
+  noise" model, which penalized the very signal it should reward.
+- Wired into ranking (`vigor.recall_boost`, saturating in [0,1) as a rich-get-richer
+  guard), vigor scoring, and pruning (actively-recalled notes are now protected from
+  the bonsai; only low-decayed-access ephemeral clusters are folded).
+- **Proven live:** 20 memories went from a 0.0 boost (dead loop) to a real
+  access-driven boost (0.24–0.50).
+
 ## [0.13.0] — 2026-06-07
 Make the self-maintenance actually RUN. An architecture audit (reality vs. README)
 found the machinery — bonsai pruning, the deterministic prune-param tuner — was

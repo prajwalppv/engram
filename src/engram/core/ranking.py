@@ -73,10 +73,12 @@ def hybrid_recall(store: "Store", search_backend: "SearchBackend", query: str, *
     from . import memory, vigor
     from .search_backends import TextSearchBackend
 
-    # The feedback loop: bias recall toward memories that have proven useful (used
-    # explicitly or fetched after the compact index), and away from recalled-but-
-    # never-acted-on noise. Cheap local read of the append-only feedback log.
-    fb = vigor.feedback_counts(store)
+    # The feedback loop (Ebbinghaus access model, after mem0): bias recall toward
+    # memories that keep getting ACCESSED — recall frequency with recency decay, the
+    # signal that actually fires — plus a bonus for explicit used/read. Cheap local
+    # read of the append-only feedback log.
+    fb = vigor.access_stats(store)
+    _now = datetime.datetime.now()
 
     pool = max(limit * 5, 25)
     dense = search_backend.query(query, limit=pool)
@@ -107,12 +109,10 @@ def hybrid_recall(store: "Store", search_backend: "SearchBackend", query: str, *
         if type_ and ent.type.lower() != type_.lower():
             continue
         base = fused[rel]
-        c = fb.get(ent.id, {})
-        useful = vigor.usefulness(c.get("used", 0), c.get("read", 0), c.get("recall", 0))
         boost = (W_RECENCY * _recency(ent.frontmatter.get("created"), today)
                  + W_SCOPE * (scoping.rank(ent.scope) / 4.0)
                  + W_TYPE * _DURABILITY.get(ent.type, 0.4)
-                 + W_USE * useful)
+                 + W_USE * vigor.recall_boost(fb.get(ent.id), _now))
         scored[rel] = (base * (1.0 + boost), ent)
 
     # Graph expansion: linked neighbors of the strongest hits (discounted).
