@@ -137,6 +137,12 @@ scratch decays in a day; preferences effectively never — pruning is horizon-aw
 Procedural runbooks are auto-captured when you spell out a process with steps (or
 save one with `/engram:howto`); working memory needs no setup.
 
+**Capture stays sharp.** Auto-capture restates the same fact across sessions, so
+engram merges near-duplicates: a new memory that restates an existing one (same
+type, high body overlap — or high semantic similarity) is appended into that node
+instead of spawning a separate near-dup. Combined with the feedback loop and bonsai
+pruning, the graph compresses noise rather than accumulating it.
+
 ## Recall, privacy & provenance
 - **Recall that learns (the feedback loop).** engram tracks which recalled memories
   were actually acted on — explicitly marked used, or whose body you fetched after

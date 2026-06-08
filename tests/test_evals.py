@@ -138,6 +138,27 @@ def test_feedback_loop_reweights_gate(store, generic, text_backend):
     assert r["used_ranks_higher"], r
 
 
+# --------------------------------------------------------------- dedup gate
+def test_dedup_precision_gate(store, generic, text_backend):
+    # seed originals, then probe restatements (must merge) vs distinct facts (must not)
+    for t, b in [("Use Postgres", "store money as integer cents in postgres with transactions"),
+                 ("Rate limit API", "throttle the public api to protect the database")]:
+        _save(store, generic, t, b, type_="Decision", search_backend=text_backend)
+    cases = [
+        {"title": "Postgres for money", "type": "Decision", "dup": True,
+         "body": "store money as integer cents in postgres with transactions"},
+        {"title": "Throttle the API", "type": "Decision", "dup": True,
+         "body": "throttle the public api to protect the database from overload"},
+        {"title": "Use Redis", "type": "Decision", "dup": False,
+         "body": "redis for the session cache layer"},
+        {"title": "Blue-green", "type": "Decision", "dup": False,
+         "body": "ship with blue-green deploys to avoid downtime"},
+    ]
+    d = ev.score_dedup(store, text_backend, cases)
+    assert d["precision"] >= 0.8, d   # a false merge smears distinct facts together
+    assert d["recall"] >= 0.66, d
+
+
 # --------------------------------------------------------------- extraction gate
 def test_extraction_coverage_gate(generic):
     # Deterministic floor using the heuristic summarizer as the extract_fn (no LLM

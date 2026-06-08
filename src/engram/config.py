@@ -62,6 +62,14 @@ class Settings(BaseSettings):
     manage_claude_md: bool = Field(default=True)     # write the managed CLAUDE.md block
     claude_md_path: Path | None = Field(default=None)  # override; else <cwd>/CLAUDE.md
 
+    # --- capture quality: near-duplicate consolidation -----------------------
+    # Restated facts MERGE into the existing node (append) instead of spawning a
+    # near-dup, keeping the graph sharp. Jaccard is the backend-free decision; the
+    # semantic cosine widens the net to catch paraphrases.
+    dedup_on_capture: bool = Field(default=True)
+    dedup_lex_threshold: float = Field(default=0.7)   # token-Jaccard floor to merge
+    dedup_sem_threshold: float = Field(default=0.88)  # cosine floor (semantic backend)
+
     # --- proactive guardrails (PreToolUse) -----------------------------------
     proactive: bool = Field(default=True)            # surface a relevant memory before a risky tool runs
     proactive_min_score: float = Field(default=1.0)  # IDF-lite threshold (higher = stricter/quieter)

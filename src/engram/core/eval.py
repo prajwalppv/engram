@@ -210,6 +210,26 @@ def prune_safety(store: Store, settings) -> dict:
     return {"planned": len(planned), "lifeline_violations": violations, "safe": not violations}
 
 
+def score_dedup(store: Store, backend, cases: list[dict]) -> dict:
+    """Near-duplicate detection quality. Store is pre-seeded with originals; each
+    case {title, body, type, dup: bool} probes whether near_duplicate fires. A false
+    positive merges DISTINCT facts (data smear), so precision matters most."""
+    from . import consolidate
+    tp = fp = fn = tn = 0
+    for c in cases:
+        hit = consolidate.near_duplicate(store, backend, title=c["title"],
+                                         body=c["body"], type_=c.get("type"))
+        pred, lab = hit is not None, bool(c["dup"])
+        tp += int(lab and pred); fn += int(lab and not pred)
+        fp += int(not lab and pred); tn += int(not lab and not pred)
+    return {
+        "n": len(cases),
+        "precision": round(tp / (tp + fp), 3) if (tp + fp) else 1.0,
+        "recall": round(tp / (tp + fn), 3) if (tp + fn) else 1.0,
+        "tp": tp, "fp": fp, "fn": fn, "tn": tn,
+    }
+
+
 def score_feedback_loop(store: Store, backend, *, query: str, used_id: str,
                         unused_id: str, limit: int = 10) -> dict:
     """The loop must reweight: a memory acted on (used/read) should rank ABOVE an

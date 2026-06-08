@@ -7,6 +7,24 @@ All notable changes to **engram** are documented here. The format follows
 ## [Unreleased]
 - Team sharing (opt-in, redacted) over the dormant `visibility` axis.
 
+## [0.9.0] — 2026-06-07
+Capture quality — the "noisy heart." Auto-capture restates the same fact across
+sessions, so the graph slowly fills with near-duplicate nodes. It now merges them.
+### Added — near-duplicate consolidation
+- **Restated facts merge instead of spawning near-dups.** At capture, a new memory
+  that restates an existing one (same type, high body-token overlap — or high cosine
+  on the semantic backend) is appended into that node as a dated block rather than
+  created as a separate near-duplicate. Exact-title repeats were already merged;
+  this closes the *different-title, same-fact* gap that bloats the store over time.
+- The decision is a backend-free token **Jaccard** on the substantive body (heading/
+  stamp/meta stripped), so it's deterministic and behaves the same on the text
+  fallback; the semantic cosine widens it to catch paraphrases. A merge only ever
+  **appends** — even a wrong match never loses content (both texts stay, recoverable).
+- Config: `ENGRAM_DEDUP_ON_CAPTURE` (default on), `ENGRAM_DEDUP_LEX_THRESHOLD`
+  (0.7), `ENGRAM_DEDUP_SEM_THRESHOLD` (0.88).
+- New eval gate `score_dedup` (precision ≥ 0.8 — a false merge smears distinct
+  facts) plus unit + capture-integration tests.
+
 ## [0.8.0] — 2026-06-07
 The feedback loop — engram now **learns from whether a memory helped**, which the
 stateless compress-and-inject competitors don't do.

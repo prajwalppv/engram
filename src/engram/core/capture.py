@@ -56,9 +56,24 @@ def capture_session(
             pass
     items = summarizer.summarize_session(
         store, settings, transcript_text, role=role, repo=repo)
+    dedup = getattr(settings, "dedup_on_capture", True)
     for it in items:
+        title = it["title"]
+        # Near-duplicate consolidation: if this restates an existing node, save under
+        # THAT title so memory.save appends (merges) instead of spawning a near-dup.
+        if dedup:
+            try:
+                from . import consolidate
+                dup = consolidate.near_duplicate(
+                    store, search_backend, title=title, body=it["body"], type_=it["type"],
+                    lex_threshold=getattr(settings, "dedup_lex_threshold", 0.7),
+                    sem_threshold=getattr(settings, "dedup_sem_threshold", 0.88))
+                if dup is not None:
+                    title = dup.title
+            except Exception:
+                pass
         res = memory.save(
-            store, role, type_=it["type"], title=it["title"], body=it["body"],
+            store, role, type_=it["type"], title=title, body=it["body"],
             repo=repo, tags=it.get("tags"), links=it.get("links"),
             session_id=session_id, search_backend=search_backend,
         )
