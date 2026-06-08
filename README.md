@@ -86,10 +86,12 @@ Re-record the GIF with [VHS](https://github.com/charmbracelet/vhs):
   - `SessionStart` → **recall** context relevant to your current repo/task (also after a compaction).
   - `Stop` (end of every turn) → **incremental capture**, throttled so it only distills once a few new turns accumulate.
   - `PreCompact` → **flush before compaction** — captures detail right before Claude summarizes it away.
-  - `SessionEnd` → **final flush** of anything remaining, then a safe
+  - `SessionEnd` → **final flush** of anything remaining.
+  - Every `SessionStart` also kicks off (detached, non-blocking) a safe
     **auto-maintenance** pass: bonsai-prune stale clusters (archived, recoverable,
     bounded, lifelines preserved) and self-tune the prune fraction from the
     resurrection signal — so the store keeps itself sharp without a manual command.
+    (SessionStart is the trigger because `SessionEnd` doesn't reliably fire.)
 - Every capture is **incremental and idempotent**: a per-session high-water mark means
   each trigger folds only the *new* delta into memory, and content-hash + semantic dedup
   prevent duplicates. See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
@@ -101,7 +103,7 @@ Re-record the GIF with [VHS](https://github.com/charmbracelet/vhs):
 - A **feedback loop** runs in two tiers. **Automatic:** recall biases toward
   memories that proved useful (used, or whose body you fetched) and lets unused
   noise decay, the bonsai prune fraction self-tunes from its own resurrection rate,
-  and these run on their own at SessionEnd. **Gated/manual:** the LLM-cost
+  and these run on their own at SessionStart. **Gated/manual:** the LLM-cost
   extraction-prompt search is an explicit, eval-gated tool (`/engram:optimize`,
   `memory_optimize_prompt`) that only accepts a new prompt if it beats the current
   one on a held-out split — never an automatic, unsupervised rewrite.
@@ -235,7 +237,7 @@ Working, single-user, local-only — with a real memory model:
 - **Proactive guardrails** — at the moment you run a risky tool (`Bash`/`Edit`/…),
   engram surfaces a relevant remembered gotcha/decision as non-blocking advice, so
   Claude doesn't repeat a known mistake. Conservative + per-session dedup; `ENGRAM_PROACTIVE=0` to disable.
-- **Self-maintaining** — at SessionEnd engram runs a safe, bounded maintenance pass
+- **Self-maintaining** — at SessionStart engram runs a safe, bounded maintenance pass
   on its own: bonsai-prune stale clusters (archived/recoverable, lifelines preserved)
   and self-tune the prune fraction from its resurrection rate. The deep self-improvement
   (extraction-prompt search) stays a gated, eval-checked tool, not an unsupervised rewrite.
@@ -345,9 +347,9 @@ uv run pytest -q
 | `ENGRAM_DETECT_PROCEDURES` | `true` | Auto-capture runbooks (procedural memory) from spelled-out step lists. |
 | `ENGRAM_WORKING_MEMORY` | `true` | Track per-session "where was I" and inject it on resume. |
 | `ENGRAM_WORKING_TTL_HOURS` | `18` | Resume window for working memory; older snapshots are pruned. |
-| `ENGRAM_AUTO_MAINTAIN` | `true` | Run safe self-maintenance (bonsai prune + prune-param tuning) automatically at SessionEnd. |
+| `ENGRAM_AUTO_MAINTAIN` | `true` | Run safe self-maintenance (bonsai prune + prune-param tuning) automatically at SessionStart (detached, non-blocking). |
 | `ENGRAM_AUTO_PRUNE` | `true` | Include bonsai pruning in auto-maintenance (archived/recoverable, bounded, lifeline-safe). |
-| `ENGRAM_MAINTAIN_INTERVAL_HOURS` | `0` | Min hours between maintenance runs. `0` = every SessionEnd; raise to throttle on very large stores. |
+| `ENGRAM_MAINTAIN_INTERVAL_HOURS` | `0` | Min hours between maintenance runs. `0` = every SessionStart; raise to throttle on very large stores. |
 | `ENGRAM_AREA` | (unset) | Optional cross-repo domain (e.g. `python`) for the scope ladder. |
 
 ## Design seams

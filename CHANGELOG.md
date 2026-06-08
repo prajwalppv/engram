@@ -7,6 +7,18 @@ All notable changes to **engram** are documented here. The format follows
 ## [Unreleased]
 - Team sharing (opt-in, redacted) over the dormant `visibility` axis.
 
+## [0.15.0] — 2026-06-08
+### Fixed — auto-maintenance never actually ran
+- Live verification (`maintenance.json` had never been written) showed the
+  auto-maintenance shipped in 0.13.0 was **inert**: it was wired only to the
+  `SessionEnd` hook, which is **unreliable** (it's engram's own documented gotcha —
+  the reason multi-trigger capture exists). So the store never self-maintained.
+- Fix: trigger maintenance from **`SessionStart`** (which reliably fires) as a
+  **detached** background process (`engram-hook maintain` via the launcher), so it
+  runs for real without ever delaying recall. Still interval-gated and idempotent;
+  SessionEnd also spawns it as a best-effort bonus. Verified end-to-end (the
+  launcher verb now runs prune + tune and writes the timestamp).
+
 ## [0.14.0] — 2026-06-08
 Make the feedback loop actually work. A maturity probe found it was **provably
 dead**: over 20 memories with feedback history, `used: 0, read: 0` — the explicit

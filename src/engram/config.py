@@ -40,9 +40,10 @@ class Settings(BaseSettings):
 
     # --- pruning (bonsai) ----------------------------------------------------
     # Automatic maintenance: run the SAFE self-maintenance (bonsai prune + the
-    # deterministic prune-param tuner) at SessionEnd, at most once per interval —
-    # so the store actually "keeps itself sharp" instead of waiting for a manual
-    # /engram:prune. Pruning archives (recoverable) and is bounded + lifeline-safe.
+    # deterministic prune-param tuner) — spawned detached at SessionStart (which
+    # reliably fires, unlike SessionEnd), at most once per interval — so the store
+    # actually "keeps itself sharp" instead of waiting for a manual /engram:prune.
+    # Pruning archives (recoverable) and is bounded + lifeline-safe.
     auto_maintain: bool = Field(default=True)
     auto_prune: bool = Field(default=True)          # include bonsai prune in maintenance
     # Min hours between maintenance runs. Default 0 = run on EVERY SessionEnd (prune

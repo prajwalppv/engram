@@ -68,6 +68,10 @@ def cmd_recall() -> int:
         repo = settings.repo or _repo_of(cwd)  # explicit ENGRAM_REPO wins over cwd
         role = role_engine.current_role_name(store, settings.role)
         area = settings.area
+        # Kick off auto-maintenance from SessionStart (reliable, unlike SessionEnd),
+        # detached so it never delays recall. Interval-gated inside the worker.
+        if getattr(settings, "auto_maintain", True):
+            _spawn_maintenance()
 
         prefs = preferences.list_preferences(store, repo=repo, role=role, area=area)
         # Persistent half of the hybrid layer: refresh the managed CLAUDE.md block.
@@ -121,13 +125,12 @@ def cmd_recall() -> int:
     return 0
 
 
-def _capture(*, force: bool, label: str, maintain: bool = False) -> int:
+def _capture(*, force: bool, label: str) -> int:
     """Shared capture path for the Stop / PreCompact / SessionEnd triggers.
 
     Folds only the unprocessed delta of the live transcript into memory and
     advances the session high-water mark. ``force`` flushes any delta; otherwise
     it waits for ``capture_every_turns`` new user turns (the throttled Stop path).
-    ``maintain`` (SessionEnd only) runs the safe auto-maintenance cycle afterward.
     """
     data = _read_hook_input()
     cwd = data.get("cwd")
@@ -159,17 +162,6 @@ def _capture(*, force: bool, label: str, maintain: bool = False) -> int:
         if results:
             print(f"[engram] {label}: captured {len(results)} memory item(s) for "
                   f"{repo or 'general'}", file=sys.stderr)
-        # SessionEnd: run the safe, interval-gated self-maintenance (bonsai prune +
-        # deterministic prune-param tuning) so the store keeps itself sharp. Async
-        # hook, off the critical path; best-effort.
-        if maintain:
-            try:
-                from .core import maintenance
-                rep = maintenance.maybe_maintain(store, settings, backend)
-                if rep:
-                    print(f"[engram] maintenance: {rep}", file=sys.stderr)
-            except Exception:
-                pass
     except Exception as e:  # best-effort
         print(f"[engram] {label} skipped: {e}", file=sys.stderr)
     return 0
@@ -192,9 +184,16 @@ def cmd_precompact() -> int:
 
 
 def cmd_ingest() -> int:
-    """SessionEnd hook — final flush of any remaining delta, then the safe,
-    interval-gated auto-maintenance cycle (keeps the store sharp on its own)."""
-    return _capture(force=True, label="ingest", maintain=True)
+    """SessionEnd hook — final flush of any remaining delta. Also kicks off
+    maintenance (detached, best-effort) — but SessionStart is the reliable trigger."""
+    rc = _capture(force=True, label="ingest")
+    try:
+        _, settings = _store_and_settings()
+        if getattr(settings, "auto_maintain", True):
+            _spawn_maintenance()
+    except Exception:
+        pass
+    return rc
 
 
 def cmd_guard() -> int:
@@ -230,6 +229,44 @@ def cmd_guard() -> int:
     return 0
 
 
+def _spawn_maintenance() -> None:
+    """Fire-and-forget the maintenance run via the launcher, DETACHED so it never
+    blocks the calling hook. Triggered from SessionStart (which reliably fires,
+    unlike SessionEnd) — this is what makes auto-maintenance actually run."""
+    try:
+        root = os.environ.get("CLAUDE_PLUGIN_ROOT")
+        if not root:
+            return
+        launch = Path(root) / "scripts" / "engram-launch"
+        if not launch.exists():
+            return
+        import subprocess
+        subprocess.Popen(["bash", str(launch), "hook", "maintain"],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         start_new_session=True)
+    except Exception:
+        pass
+
+
+def cmd_maintain() -> int:
+    """Detached maintenance worker (spawned by SessionStart/SessionEnd): the safe,
+    interval-gated bonsai prune + prune-param self-tune. Runs in the background so
+    it never delays a session; best-effort."""
+    try:
+        from .core import maintenance
+        from .core.search_backends import build_backend
+        store, settings = _store_and_settings()
+        if not getattr(settings, "auto_maintain", True):
+            return 0
+        backend = build_backend(settings, store)
+        rep = maintenance.maybe_maintain(store, settings, backend)
+        if rep:
+            print(f"[engram] maintenance: {rep}", file=sys.stderr)
+    except Exception as e:
+        print(f"[engram] maintenance skipped: {e}", file=sys.stderr)
+    return 0
+
+
 def main() -> None:
     # Recursion guard (belt-and-suspenders to the launcher check): never let a
     # nested `claude -p` summarizer run trigger another capture.
@@ -242,10 +279,12 @@ def main() -> None:
         "precompact": cmd_precompact,
         "ingest": cmd_ingest,
         "guard": cmd_guard,
+        "maintain": cmd_maintain,
     }
     fn = dispatch.get(cmd)
     if fn is None:
-        print("usage: engram-hook {recall|capture|precompact|ingest|guard}", file=sys.stderr)
+        print("usage: engram-hook {recall|capture|precompact|ingest|guard|maintain}",
+              file=sys.stderr)
         raise SystemExit(2)
     raise SystemExit(fn())
 

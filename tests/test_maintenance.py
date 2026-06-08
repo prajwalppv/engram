@@ -51,3 +51,18 @@ def test_interval_gate_skips_second_run(store, generic, text_backend):
     s = _settings(maintain_interval_hours=24)
     assert maintenance.maybe_maintain(store, s, text_backend) is not None
     assert maintenance.maybe_maintain(store, s, text_backend) is None  # within interval
+
+
+def test_cmd_maintain_hook_invokes_worker(monkeypatch, tmp_path):
+    # the SessionStart-spawned `engram-hook maintain` verb must actually run the
+    # worker (this is the fix for "auto-maintenance never ran" — SessionEnd was
+    # unreliable). Isolated from the real store + legacy migration.
+    monkeypatch.setenv("ENGRAM_STORE_DIR", str(tmp_path / "store"))
+    monkeypatch.setenv("ENGRAM_SEARCH_BACKEND", "text")
+    monkeypatch.setattr("engram.core.migrate.maybe_migrate", lambda *a, **k: None)
+    ran = {}
+    monkeypatch.setattr("engram.core.maintenance.maybe_maintain",
+                        lambda *a, **k: ran.setdefault("v", True) or {"ok": 1})
+    from engram import hookcli
+    assert hookcli.cmd_maintain() == 0
+    assert ran.get("v") is True
