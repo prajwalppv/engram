@@ -66,11 +66,12 @@ def register(mcp: FastMCP, deps: Deps) -> None:
 
     @mcp.tool()
     def memory_forget(identifier: str) -> dict:
-        """Remove a learned preference (easy undo). Archives it (recoverable) and
-        drops it from recall + the managed CLAUDE.md block on next session.
+        """Forget ANY memory — preference, decision, gotcha, note, etc. (easy undo).
+        Archives it (recoverable) and drops it from recall + the index; if it was a
+        preference, also removes it from the managed CLAUDE.md block on next session.
 
         Args:
-            identifier: The preference's id, title, or relative path.
+            identifier: The memory's id, title, or relative path.
         """
         res = preferences.forget(deps.store, identifier, search_backend=deps.search_backend)
         if deps.settings.claude_md_path:

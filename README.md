@@ -153,6 +153,10 @@ save one with `/engram:howto`); working memory needs no setup.
 - **Provenance — `/engram:why` (and the `memory_why` tool).** Ask why a recalled
   fact exists: its origin (when/session/role), whether it's been superseded, and its
   graph links — so you can trust it or discard it.
+- **Correct or forget anything.** `memory_forget` removes *any* memory (not just
+  preferences) by id, title, or path — archived and fully recoverable, and dropped
+  from the index immediately. Pair it with `supersede` to replace a fact while
+  keeping its history.
 
 ## Architecture
 Memory is captured at multiple points in the session lifecycle and recalled at the
