@@ -7,6 +7,29 @@ All notable changes to **engram** are documented here. The format follows
 ## [Unreleased]
 - Team sharing (opt-in, redacted) over the dormant `visibility` axis.
 
+## [0.13.0] — 2026-06-07
+Make the self-maintenance actually RUN. An architecture audit (reality vs. README)
+found the machinery — bonsai pruning, the deterministic prune-param tuner — was
+excellent but **inert**: it only ran when a human invoked a tool, yet the README
+promised a system that "keeps itself sharp" and "self-improves over time."
+### Added — automatic maintenance
+- **`core/maintenance.py`** runs at **SessionEnd** (the async hook, off the critical
+  path): bonsai-prune stale clusters then self-tune the prune fraction from the
+  resurrection signal. Safe by construction — pruning archives (recoverable), is
+  bounded by the ⅓-rule, and preserves lifelines (preferences/durable types).
+  Config: `ENGRAM_AUTO_MAINTAIN` (on), `ENGRAM_AUTO_PRUNE` (on),
+  `ENGRAM_MAINTAIN_INTERVAL_HOURS` (`0` = every SessionEnd; raise to throttle).
+### Changed
+- README is now honest about the feedback loop's two tiers: **automatic**
+  (recall→ranking/vigor bias, prune-fraction self-tuning) vs. **gated/manual** (the
+  LLM-cost extraction-prompt search, which only accepts a prompt that beats the
+  current one on a held-out split). Removed the inaccurate "recall prompts" claim
+  (recall is ranking, not a prompt).
+- **Config defaults audited.** `recall_limit` was dead (never read) — now wired into
+  the recall hook + `memory_recall` tool (`ENGRAM_RECALL_LIMIT` works). Removed
+  `similarity_threshold` (dead + misleading — no cosine floor exists in the RRF
+  ranking). Every remaining setting is consumed and has a sensible default.
+
 ## [0.12.1] — 2026-06-07
 ### Fixed
 - **`backfill_links` was not convergent** — because `related()` excludes existing

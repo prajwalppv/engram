@@ -39,6 +39,16 @@ class Settings(BaseSettings):
     area: str | None = Field(default=None)
 
     # --- pruning (bonsai) ----------------------------------------------------
+    # Automatic maintenance: run the SAFE self-maintenance (bonsai prune + the
+    # deterministic prune-param tuner) at SessionEnd, at most once per interval —
+    # so the store actually "keeps itself sharp" instead of waiting for a manual
+    # /engram:prune. Pruning archives (recoverable) and is bounded + lifeline-safe.
+    auto_maintain: bool = Field(default=True)
+    auto_prune: bool = Field(default=True)          # include bonsai prune in maintenance
+    # Min hours between maintenance runs. Default 0 = run on EVERY SessionEnd (prune
+    # only acts on stale clusters, so most runs are cheap no-ops); raise it to
+    # throttle on very large stores.
+    maintain_interval_hours: float = Field(default=0)
     prune_min_age_days: int = Field(default=14)   # only fold sessions older than this
     prune_max_fraction: float = Field(default=0.25)  # <= this share pruned per cycle (⅓-rule)
     prune_min_cluster: int = Field(default=2)     # min stale sessions per repo to consolidate
@@ -92,8 +102,7 @@ class Settings(BaseSettings):
     # back to "text" automatically if fastembed/numpy aren't importable.
     search_backend: str = Field(default="semantic")  # "semantic" | "text"
     embedding_model: str = Field(default="BAAI/bge-small-en-v1.5")
-    similarity_threshold: float = Field(default=0.55)  # recall floor (graph recall)
-    recall_limit: int = Field(default=8)
+    recall_limit: int = Field(default=8)              # default max hits per recall
     recall_hybrid: bool = Field(default=True)         # fuse lexical + dense (RRF)
     recall_graph_expand: bool = Field(default=True)   # surface linked neighbors
 

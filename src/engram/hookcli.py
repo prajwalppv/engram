@@ -81,7 +81,8 @@ def cmd_recall() -> int:
 
         # Recalled memory excludes horizons surfaced elsewhere (prefs here; working
         # memory injected only on resume) and is applicability-filtered to context.
-        ents = memory.list_recent(store, repo=repo, role=role, area=area, limit=6,
+        ents = memory.list_recent(store, repo=repo, role=role, area=area,
+                                  limit=settings.recall_limit,
                                   exclude_horizons={"preference", "working"})
 
         sections: list[str] = []
@@ -120,12 +121,13 @@ def cmd_recall() -> int:
     return 0
 
 
-def _capture(*, force: bool, label: str) -> int:
+def _capture(*, force: bool, label: str, maintain: bool = False) -> int:
     """Shared capture path for the Stop / PreCompact / SessionEnd triggers.
 
     Folds only the unprocessed delta of the live transcript into memory and
     advances the session high-water mark. ``force`` flushes any delta; otherwise
     it waits for ``capture_every_turns`` new user turns (the throttled Stop path).
+    ``maintain`` (SessionEnd only) runs the safe auto-maintenance cycle afterward.
     """
     data = _read_hook_input()
     cwd = data.get("cwd")
@@ -157,6 +159,17 @@ def _capture(*, force: bool, label: str) -> int:
         if results:
             print(f"[engram] {label}: captured {len(results)} memory item(s) for "
                   f"{repo or 'general'}", file=sys.stderr)
+        # SessionEnd: run the safe, interval-gated self-maintenance (bonsai prune +
+        # deterministic prune-param tuning) so the store keeps itself sharp. Async
+        # hook, off the critical path; best-effort.
+        if maintain:
+            try:
+                from .core import maintenance
+                rep = maintenance.maybe_maintain(store, settings, backend)
+                if rep:
+                    print(f"[engram] maintenance: {rep}", file=sys.stderr)
+            except Exception:
+                pass
     except Exception as e:  # best-effort
         print(f"[engram] {label} skipped: {e}", file=sys.stderr)
     return 0
@@ -179,8 +192,9 @@ def cmd_precompact() -> int:
 
 
 def cmd_ingest() -> int:
-    """SessionEnd hook — final flush of any remaining delta."""
-    return _capture(force=True, label="ingest")
+    """SessionEnd hook — final flush of any remaining delta, then the safe,
+    interval-gated auto-maintenance cycle (keeps the store sharp on its own)."""
+    return _capture(force=True, label="ingest", maintain=True)
 
 
 def cmd_guard() -> int:

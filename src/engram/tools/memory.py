@@ -83,7 +83,8 @@ def register(mcp: FastMCP, deps: Deps) -> None:
 
     @mcp.tool()
     def memory_recall(
-        query: str, repo: str | None = None, type: str | None = None, limit: int = 8
+        query: str, repo: str | None = None, type: str | None = None,
+        limit: int | None = None
     ) -> list[dict]:
         """Recall memories relevant to a query (semantic when enabled).
 
@@ -99,8 +100,9 @@ def register(mcp: FastMCP, deps: Deps) -> None:
             query: What you're working on / looking for.
             repo: Restrict to a project.
             type: Restrict to a node type.
-            limit: Max results.
+            limit: Max results (defaults to ENGRAM_RECALL_LIMIT).
         """
+        limit = limit or deps.settings.recall_limit
         hits = memory.recall(deps.store, deps.search_backend, query,
                              repo=repo, type_=type, role=_role().name,
                              area=deps.settings.area, limit=limit,
