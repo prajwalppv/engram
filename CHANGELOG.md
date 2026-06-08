@@ -7,6 +7,31 @@ All notable changes to **engram** are documented here. The format follows
 ## [Unreleased]
 - Team sharing (opt-in, redacted) over the dormant `visibility` axis.
 
+## [0.8.0] — 2026-06-07
+The feedback loop — engram now **learns from whether a memory helped**, which the
+stateless compress-and-inject competitors don't do.
+### Added — recall that learns
+- **Usage feeds ranking.** `memory_recall` now boosts memories with demonstrated
+  usefulness (explicitly marked used, or whose body was fetched after the compact
+  index) and stops protecting recalled-but-never-acted-on noise. Small, bounded
+  uplift (`W_USE`) so relevance still dominates.
+- **The signal densifies itself.** Fetching a body with `memory_read` after the
+  compact index is logged as an implicit usefulness vote (`read`) — no extra work
+  for the agent, so the loop has real data instead of relying on rare explicit
+  `mark_used`.
+- **Pruning decays noise.** Vigor now rewards demonstrated usefulness and *decays*
+  recalled-but-never-used memories (previously raw recall was rewarded, which
+  protected noise from the bonsai). Lifelines stay fully protected.
+- New eval gate `score_feedback_loop` proves the loop actually reweights (an
+  acted-on memory must outrank an equally-relevant untouched one), plus unit tests
+  for the usefulness math and vigor noise-decay.
+### Fixed
+- **Recurring junk preferences.** The detector now rejects changelog/report lines
+  ("Fixed: default to …", caught by the "default to" cue) and harness caveat
+  artifacts (`</local-command-caveat>`) — the two patterns that kept re-capturing
+  bogus standing prefs every session. Regression tests added; the live offenders
+  were forgotten.
+
 ## [0.7.0] — 2026-06-07
 Competitive-analysis pass (vs claude-mem / mem0 / Zep / Letta): borrow the best
 ideas, keep engram's local-first, role-aware, zero-infra ethos. All eval-gated.

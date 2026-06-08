@@ -38,7 +38,10 @@ HORIZON_HALFLIFE = {
 
 
 def feedback_counts(store: Store) -> dict[str, dict[str, int]]:
-    """Per-memory-id usage counts from the feedback log: {id: {recall, used}}."""
+    """Per-memory-id usage counts from the feedback log: {id: {recall, used, read}}.
+
+    recall = surfaced in a recall; used = explicitly marked useful; read = body
+    fetched after the compact index (an implicit usefulness vote)."""
     p = store.root / ".state" / "feedback.jsonl"
     out: dict[str, dict[str, int]] = {}
     if not p.exists():
@@ -49,12 +52,21 @@ def feedback_counts(store: Store) -> dict[str, dict[str, int]]:
         except Exception:
             continue
         kind = ev.get("kind")
-        if kind not in ("recall", "used"):
+        if kind not in ("recall", "used", "read"):
             continue
         for mid in ev.get("ids", []):
-            out.setdefault(mid, {"recall": 0, "used": 0})
+            out.setdefault(mid, {"recall": 0, "used": 0, "read": 0})
             out[mid][kind] = out[mid].get(kind, 0) + 1
     return out
+
+
+def usefulness(used: int, read: int, recall: int) -> float:
+    """Demonstrated-usefulness ratio in [0, 1]: of the times a memory was surfaced,
+    how often was it actually acted on (explicitly used, or its body fetched)?
+    Smoothed so a single recall doesn't swing it. read counts at half an explicit
+    use. A memory recalled often but never acted on → ~0 (noise)."""
+    acted = used + 0.5 * max(read, 0)
+    return min(acted / (max(recall, 0) + 1.0), 1.0)
 
 
 def indegree(store: Store) -> dict[str, int]:
@@ -82,15 +94,21 @@ def _age_days(created: str | None, today: datetime.date) -> int:
 
 
 def score(entry: MemoryEntry, *, used: int, recall: int, indeg: int,
-          today: datetime.date) -> float:
+          today: datetime.date, read: int = 0) -> float:
     age = _age_days(entry.frontmatter.get("created"), today)
     half_life = HORIZON_HALFLIFE.get(entry.horizon, HALF_LIFE_DAYS)
     recency = math.exp(-age / half_life)
     durability = TYPE_DURABILITY.get(entry.type, 1.0)
-    return (2.0 * used + 0.5 * recall
+    # Reward DEMONSTRATED usefulness (explicit use + body fetch), and DECAY noise
+    # (surfaced repeatedly but never acted on). Previously raw recall was rewarded,
+    # which protected recalled-but-never-used noise from pruning — backwards.
+    acted = used + 0.5 * max(read, 0)
+    noise = max(recall - used - read, 0)
+    return (2.0 * acted
             + 1.5 * math.log1p(max(indeg, 0))
             + 1.0 * recency
-            + durability)
+            + durability
+            - 0.5 * math.log1p(noise))
 
 
 def score_all(store: Store, today: datetime.date | None = None) -> dict[str, dict]:
@@ -102,12 +120,14 @@ def score_all(store: Store, today: datetime.date | None = None) -> dict[str, dic
     for p in store.iter_entries():
         ent = memory._read_entry(store, p)
         c = fb.get(ent.id, {})
-        used, recall = c.get("used", 0), c.get("recall", 0)
+        used, recall, read = c.get("used", 0), c.get("recall", 0), c.get("read", 0)
         ind = deg.get(fm.sanitize_title(ent.title), 0)
         out[ent.rel_path] = {
             "entry": ent,
-            "vigor": round(score(ent, used=used, recall=recall, indeg=ind, today=today), 3),
-            "used": used, "recall": recall, "indegree": ind,
+            "vigor": round(score(ent, used=used, recall=recall, read=read,
+                                 indeg=ind, today=today), 3),
+            "used": used, "recall": recall, "read": read, "indegree": ind,
+            "usefulness": round(usefulness(used, read, recall), 3),
             "age_days": _age_days(ent.frontmatter.get("created"), today),
             "horizon": ent.horizon,
             "ephemeral": ent.type in EPHEMERAL_TYPES,

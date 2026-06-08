@@ -36,6 +36,7 @@ LEX_W = 0.5
 W_RECENCY = 0.04         # max fractional uplift from recency
 W_SCOPE = 0.04           # max uplift from scope specificity
 W_TYPE = 0.02            # max uplift from type durability
+W_USE = 0.06             # max uplift from DEMONSTRATED usefulness (the feedback loop)
 GRAPH_DECAY = 0.5        # neighbors inherit this fraction of a parent's score
 HALF_LIFE_DAYS = 45.0
 
@@ -69,8 +70,13 @@ def hybrid_recall(store: "Store", search_backend: "SearchBackend", query: str, *
                   type_: str | None = None, limit: int = 8,
                   hybrid: bool = True, expand_graph: bool = True) -> list[MemoryHit]:
     from . import frontmatter as fm
-    from . import memory
+    from . import memory, vigor
     from .search_backends import TextSearchBackend
+
+    # The feedback loop: bias recall toward memories that have proven useful (used
+    # explicitly or fetched after the compact index), and away from recalled-but-
+    # never-acted-on noise. Cheap local read of the append-only feedback log.
+    fb = vigor.feedback_counts(store)
 
     pool = max(limit * 5, 25)
     dense = search_backend.query(query, limit=pool)
@@ -101,9 +107,12 @@ def hybrid_recall(store: "Store", search_backend: "SearchBackend", query: str, *
         if type_ and ent.type.lower() != type_.lower():
             continue
         base = fused[rel]
+        c = fb.get(ent.id, {})
+        useful = vigor.usefulness(c.get("used", 0), c.get("read", 0), c.get("recall", 0))
         boost = (W_RECENCY * _recency(ent.frontmatter.get("created"), today)
                  + W_SCOPE * (scoping.rank(ent.scope) / 4.0)
-                 + W_TYPE * _DURABILITY.get(ent.type, 0.4))
+                 + W_TYPE * _DURABILITY.get(ent.type, 0.4)
+                 + W_USE * useful)
         scored[rel] = (base * (1.0 + boost), ent)
 
     # Graph expansion: linked neighbors of the strongest hits (discounted).

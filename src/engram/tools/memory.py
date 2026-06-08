@@ -144,9 +144,16 @@ def register(mcp: FastMCP, deps: Deps) -> None:
     def memory_read(identifier: str) -> dict:
         """Read a memory by id, title, or relative path."""
         try:
-            return memory.read(deps.store, identifier).model_dump()
+            entry = memory.read(deps.store, identifier)
         except CoreError as e:
             raise ToolError(str(e)) from e
+        # Fetching a full body after the compact recall index is an implicit
+        # usefulness vote — feed it back into ranking/pruning. Best-effort.
+        try:
+            feedback.record_read(deps.store, [entry.id])
+        except Exception:
+            pass
+        return entry.model_dump()
 
     @mcp.tool()
     def memory_mark_used(ids: list[str], roles: list[str] | None = None) -> dict:

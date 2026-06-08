@@ -34,6 +34,16 @@ def record_recall(store: Store, query: str, ids: list[str]) -> None:
     record(store, {"kind": "recall", "query": query, "ids": ids})
 
 
+def record_read(store: Store, ids: list[str]) -> None:
+    """A body was fetched after the compact index (progressive disclosure). In the
+    token-frugal model that's an implicit relevance vote — softer than an explicit
+    'used', but it densifies the feedback loop without asking the agent to do
+    anything. Best-effort; never raise on the recall/read hot path."""
+    ids = [i for i in (ids or []) if i]
+    if ids:
+        record(store, {"kind": "read", "ids": ids})
+
+
 def record_signal(store: Store, signal: str, ids: list[str],
                   roles_used: list[str] | None = None) -> None:
     """signal in {'used','rejected'}. 'used' reinforces the producing role(s)."""

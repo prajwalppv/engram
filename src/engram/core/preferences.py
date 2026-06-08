@@ -39,9 +39,17 @@ _STRONG_CUE = re.compile(
 # Imperative sentence starts that read as a rule, not a one-off ask.
 _IMPERATIVE_START = re.compile(r"^\s*(always|never|prefer|avoid|don'?t|do not)\b", re.I)
 # Non-prose tells a standing preference NEVER contains: code fences, markdown
-# headers, runs of line numbers (file dumps), urls. (Absolute paths are NOT a tell
-# — "never edit /etc/hosts directly" is a perfectly valid preference.)
-_NOISE = re.compile(r"```|(?:^|\s)#{1,6}\s|\b\d{1,}\s+\d{1,}\b|https?://")
+# headers, runs of line numbers (file dumps), urls, or HTML-ish closing tags like
+# </local-command-caveat> (a harness artifact, not user prose). (Absolute paths are
+# NOT a tell — "never edit /etc/hosts directly" is a perfectly valid preference.)
+_NOISE = re.compile(r"```|(?:^|\s)#{1,6}\s|\b\d{1,}\s+\d{1,}\b|https?://|</\w")
+# Past-tense changelog/report lines ("Fixed: default to …", "Added: …") read like
+# instructions because of cues like "default to", but they're status reports, not
+# standing preferences. Require a trailing ':' or '-' so we don't catch "update the
+# docs" (a real instruction) — only "Updated: …".
+_REPORT_START = re.compile(
+    r"^\s*(fixed|added|removed|changed|done|migrated|updated|refactored|"
+    r"implemented|merged|shipped|bumped|renamed|deleted|created)\b\s*[:\-]", re.I)
 
 _USER_TURN_RE = re.compile(r"(?:^|\n)user:\s*(.*?)(?=\n(?:assistant|user):|\Z)",
                            re.I | re.S)
@@ -65,8 +73,8 @@ def detect(transcript_text: str) -> list[str]:
         s = raw.strip().lstrip("-*•").strip()
         if not (8 <= len(s) <= 240):
             continue
-        if "\n" in s or _NOISE.search(s):
-            continue  # multi-line blobs / code / file dumps are not standing prefs
+        if "\n" in s or _NOISE.search(s) or _REPORT_START.match(s):
+            continue  # multi-line blobs / code / file dumps / changelog lines aren't prefs
         if len(re.findall(r"[A-Za-z]{2,}", s)) < 3:
             continue  # too few real words to be a meaningful instruction
         if not (_STRONG_CUE.search(s) or _IMPERATIVE_START.match(s)):

@@ -210,6 +210,19 @@ def prune_safety(store: Store, settings) -> dict:
     return {"planned": len(planned), "lifeline_violations": violations, "safe": not violations}
 
 
+def score_feedback_loop(store: Store, backend, *, query: str, used_id: str,
+                        unused_id: str, limit: int = 10) -> dict:
+    """The loop must reweight: a memory acted on (used/read) should rank ABOVE an
+    equally-relevant one that was recalled but never acted on. The caller seeds the
+    feedback first; this just re-runs recall and checks the order changed."""
+    from . import ranking
+    order = [h.id for h in ranking.hybrid_recall(store, backend, query, limit=limit)]
+    used_rank = order.index(used_id) if used_id in order else 10**6
+    unused_rank = order.index(unused_id) if unused_id in order else 10**6
+    return {"used_rank": used_rank, "unused_rank": unused_rank,
+            "used_ranks_higher": used_rank < unused_rank}
+
+
 def _coverage(items: list[dict], expected_terms: list[str]) -> float:
     if not expected_terms:
         return 1.0

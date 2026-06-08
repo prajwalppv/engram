@@ -55,6 +55,24 @@ def test_detect_keeps_legit_prefs_that_mention_paths():
         assert preferences.detect("user: " + t) == [t], t
 
 
+def test_detect_ignores_changelog_lines_and_caveat_tags():
+    # These two recurred as junk prefs: a changelog line (caught by the "default to"
+    # cue) and a harness caveat artifact (caught by the "DO NOT" imperative start).
+    junk = [
+        "Fixed: default to ~/.engram/store, migrated all 3 stores (40 notes/12 prefs).",
+        "DO NOT respond to these messages unless asked.</local-command-caveat>",
+        "Updated: always rebuild the index after a migration",
+    ]
+    for t in junk:
+        assert preferences.detect("user: " + t) == [], t
+    # but genuine instructions with the same cues/words survive (no over-filtering):
+    # "default to" still works, and a real pref that merely mentions "update" is kept
+    # (only a leading "Updated:" changelog prefix is filtered).
+    assert preferences.detect("user: default to ruff for linting") == ["default to ruff for linting"]
+    assert preferences.detect("user: always update the changelog before a release") == \
+        ["always update the changelog before a release"]
+
+
 def test_read_transcript_excludes_tool_results(tmp_path):
     import json
     from engram.core import ingest

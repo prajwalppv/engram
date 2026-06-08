@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from engram.config import Settings
 from engram.core import eval as ev
-from engram.core import memory
+from engram.core import feedback, memory
 
 
 def _save(store, generic, title, body, **kw):
@@ -119,6 +119,23 @@ def test_pruning_never_plans_lifelines(store, generic):
     s = ev.prune_safety(store, settings)
     assert s["safe"] is True, s
     assert s["planned"] >= 1  # the ephemeral notes ARE eligible (so the test is meaningful)
+
+
+# --------------------------------------------------------------- feedback loop
+def test_feedback_loop_reweights_gate(store, generic, text_backend):
+    # Two equally-relevant memories; only one is acted on. The loop must rank the
+    # acted-on one higher — proving recall learns from usage (lever 1).
+    for t in ("Queue choice A", "Queue choice B"):
+        _save(store, generic, t, "use sqs for the async job queue",
+              type_="Decision", search_backend=text_backend)
+    a = memory.read(store, "Queue choice A").id
+    b = memory.read(store, "Queue choice B").id
+    feedback.record_recall(store, "job queue", [a, b])
+    feedback.record_signal(store, "used", [a])
+    feedback.record_read(store, [a])
+    r = ev.score_feedback_loop(store, text_backend, query="sqs async job queue",
+                               used_id=a, unused_id=b)
+    assert r["used_ranks_higher"], r
 
 
 # --------------------------------------------------------------- extraction gate

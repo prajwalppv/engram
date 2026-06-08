@@ -138,6 +138,11 @@ Procedural runbooks are auto-captured when you spell out a process with steps (o
 save one with `/engram:howto`); working memory needs no setup.
 
 ## Recall, privacy & provenance
+- **Recall that learns (the feedback loop).** engram tracks which recalled memories
+  were actually acted on — explicitly marked used, or whose body you fetched after
+  the compact index — and biases future recall toward what's proven useful while
+  letting recalled-but-never-used noise decay out of the bonsai. The memory gets
+  sharper with use; stateless compress-and-inject tools don't.
 - **Token-frugal recall (progressive disclosure).** `memory_recall` returns a
   *compact index* — each hit carries a bounded `snippet` and a `created` date, not
   the full body. The agent judges relevance from the index and pulls full bodies
