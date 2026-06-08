@@ -143,6 +143,16 @@ def capture_delta(
     if not force and new_user_turns < max(1, min_turns):
         return []  # accumulate; a later trigger will flush this delta
 
+    # Repo attribution, on the fly: prefer an explicit override, else the dominant
+    # git repo of the FILES this session edited (ground truth — correct even when
+    # you edit project A from project B's cwd), else the caller's cwd-derived repo.
+    try:
+        from . import projects
+        inferred = projects.dominant_repo(ingest.edited_paths(transcript_path))
+    except Exception:
+        inferred = None
+    repo = getattr(settings, "repo", None) or inferred or repo
+
     text = "\n\n".join(f"{e['role']}: {e['text']}" for e in delta)
     results = capture_session(
         store, settings, transcript_text=text, repo=repo,

@@ -55,6 +55,37 @@ def read_transcript(path: str | Path) -> list[dict]:
     return out
 
 
+_EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
+
+
+def edited_paths(path: str | Path) -> list[str]:
+    """File paths touched by edit-type tool calls in the transcript — the
+    ground-truth signal for which project a session worked on (vs the cwd)."""
+    out: list[str] = []
+    p = Path(path)
+    if not p.exists():
+        return out
+    for line in p.read_text(encoding="utf-8", errors="ignore").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except Exception:
+            continue
+        msg = obj.get("message") if isinstance(obj.get("message"), dict) else obj
+        content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+        for b in content:
+            if (isinstance(b, dict) and b.get("type") == "tool_use"
+                    and b.get("name") in _EDIT_TOOLS):
+                fp = (b.get("input") or {}).get("file_path")
+                if fp:
+                    out.append(fp)
+    return out
+
+
 def _truncate(s: str, n: int) -> str:
     s = " ".join(s.split())
     return s if len(s) <= n else s[: n - 1].rstrip() + "…"

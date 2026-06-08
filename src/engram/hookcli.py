@@ -27,41 +27,12 @@ def _read_hook_input() -> dict:
         return {}
 
 
-import re as _re
-import subprocess as _subprocess
-
-_VERSION_RE = _re.compile(r"^v?\d+(\.\d+)+$")  # "0.1.6", "v1.2.3" — a version, not a repo
-
-
 def _repo_of(cwd: str | None) -> str | None:
-    """Best repo label for ``cwd``. Resolves the git repository ROOT (stable across
-    subdirs and plugin-cache dirs whose raw basename is a version like "0.1.6"), and
-    rejects version-string garbage so the scope ladder isn't corrupted by junk repos."""
-    if not cwd:
-        return None
-    p = Path(cwd)
-    name = p.name
-    # Fast path: if cwd IS a git root (the common case), its basename is the repo —
-    # no subprocess. Only shell out to walk up to the root when cwd is a subdir / not
-    # a git root, or its basename is a version string we must resolve past. This
-    # keeps git off the PreToolUse hot path (the guard hook fires on every tool).
-    needs_resolve = _VERSION_RE.match(name or "")
-    try:
-        needs_resolve = needs_resolve or not (p / ".git").exists()
-    except Exception:
-        needs_resolve = True
-    if needs_resolve:
-        try:
-            r = _subprocess.run(["git", "-C", cwd, "rev-parse", "--show-toplevel"],
-                                capture_output=True, text=True, timeout=2)
-            if r.returncode == 0 and r.stdout.strip():
-                name = Path(r.stdout.strip()).name
-        except Exception:
-            pass
-    name = (name or "").strip()
-    if not name or _VERSION_RE.match(name):
-        return None  # version string / empty → no usable repo (better than a junk scope)
-    return name
+    """Repo label for a cwd — git-root basename, version-garbage rejected, stat-gated
+    (keeps git off the PreToolUse hot path). Thin wrapper over core.projects so the
+    logic lives in one place and is reused by the edited-files inference."""
+    from .core.projects import repo_name
+    return repo_name(cwd)
 
 
 def _store_and_settings():

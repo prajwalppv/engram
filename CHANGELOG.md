@@ -7,6 +7,24 @@ All notable changes to **engram** are documented here. The format follows
 ## [Unreleased]
 - Team sharing (opt-in, redacted) over the dormant `visibility` axis.
 
+## [0.12.0] — 2026-06-07
+General repo attribution — the real fix for mis-scoped memories (replaces the
+cwd-only heuristic and the engram-specific env pin). A memory belongs to the
+project whose FILES the session edited, not the directory the session ran from.
+### Added
+- **`core/projects.py`** — `repo_name(path)` resolves a path to its git-root repo
+  name (version-garbage rejected, `stat`-gated so git stays off the hot path);
+  `dominant_repo(paths)` picks the project a session mostly edited.
+- **On-the-fly attribution at capture.** `ingest.edited_paths` pulls the files
+  touched by Edit/Write/MultiEdit from the transcript; capture scopes the memory to
+  their dominant git repo. Precedence: explicit `ENGRAM_REPO` → edited-files repo →
+  cwd. So editing project A from project B's directory now attributes to A —
+  generically, no per-project config.
+- `_repo_of` is now a thin wrapper over `projects.repo_name` (one source of truth).
+### Fixed
+- **Test isolation** — an autouse fixture strips ambient `ENGRAM_*` env so a value
+  in the developer's shell/settings can't silently change test behavior (it did).
+
 ## [0.11.0] — 2026-06-07
 Repo-scoping correctness + live-data healing. A deep verification pass found the
 root cause of mis-scoped memories and a perf regression I'd shipped, and added the
