@@ -84,7 +84,13 @@ def hybrid_recall(store: "Store", search_backend: "SearchBackend", query: str, *
     dense = search_backend.query(query, limit=pool)
     weighted = [([h.rel_path for h in dense], DENSE_W)]
     if hybrid:
-        lexical = TextSearchBackend(store).query(query, limit=pool)
+        # Lexical signal: prefer the backend's IN-MEMORY index text (O(N) string ops,
+        # no disk) over the disk-scanning TextSearchBackend — the latter re-reads +
+        # YAML-parses every note per recall (the measured O(N) bottleneck).
+        if hasattr(search_backend, "lexical"):
+            lexical = search_backend.lexical(query, limit=pool)
+        else:
+            lexical = TextSearchBackend(store).query(query, limit=pool)
         weighted.append(([h.rel_path for h in lexical], LEX_W))
     fused = _rrf(weighted)
     if not fused:

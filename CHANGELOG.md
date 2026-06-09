@@ -7,6 +7,22 @@ All notable changes to **engram** are documented here. The format follows
 ## [Unreleased]
 - Team sharing (opt-in, redacted) over the dormant `visibility` axis.
 
+## [0.17.0] — 2026-06-08
+Recall latency — measured, then fixed at the proven bottleneck.
+### Performance
+- A benchmark (`scripts/bench_recall.py`) broke recall into components and found
+  the lexical half re-read + YAML-parsed **every note on every recall** — perfectly
+  linear O(N), **93–98% of recall time** (1.47 s at 3,000 notes; ~2.5 s at 5,000).
+  Dense (semantic) was already a flat ~2 ms.
+- Fix: store the searchable text in the semantic index meta and score lexical
+  **in-memory** (no disk, no parse). Measured: lexical 1,458 ms → **3.9 ms** at
+  3,000 notes (**374×**); **full recall 1,490 ms → 38 ms**, and now **flat
+  ~30–47 ms from 200 to 5,000 notes** (was heading to 2.5 s). Recall is effectively
+  O(1) in store size up to thousands.
+- Identical ranking to the old disk scan (same scoring; correctness test added).
+  Old indexes **auto-upgrade** on first load (reuses vectors via hash-skip — no
+  re-embedding). Text backend unchanged (it's the fallback).
+
 ## [0.16.0] — 2026-06-08
 Auto-contradiction detection — a stale fact that's been corrected no longer lingers.
 Researched against the field (mem0's ADD/UPDATE/DELETE-over-retrieved-neighborhood;

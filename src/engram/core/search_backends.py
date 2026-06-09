@@ -31,6 +31,13 @@ def content_hash(title: str, body: str) -> str:
     return hashlib.sha256(f"{title}\n{body}".encode()).hexdigest()
 
 
+def _hay(title: str, body: str) -> str:
+    """Lowercased searchable text stored in the index meta, so lexical scoring runs
+    in-memory instead of re-reading + YAML-parsing every note on each recall (the
+    O(N) disk bottleneck). Bounded so a giant note can't bloat the index."""
+    return (f"{title}\n{body}").lower()[:4000]
+
+
 def build_backend(settings, store) -> "SearchBackend":
     """Pick the search backend from settings. Semantic when requested AND its deps
     are importable; otherwise text. A missing dep degrades gracefully (never crashes).
@@ -249,9 +256,12 @@ class SemanticSearchBackend:
             return
         self._load_from_disk()
         # Self-heal: rebuild if the index is empty/corrupt or has DRIFTED from the
-        # store (a concurrent write that lost rows, or notes added out-of-band).
+        # store (a concurrent write that lost rows, or notes added out-of-band), OR
+        # if it predates the in-memory lexical text (a one-time upgrade — reuses
+        # vectors via hash-skip, just repopulates the meta).
         try:
-            if self._drift(self.store):
+            stale = self._meta and any("text" not in m for m in self._meta)
+            if self._drift(self.store) or stale:
                 self.reindex_all(self.store)
         except Exception:
             pass
@@ -268,14 +278,16 @@ class SemanticSearchBackend:
                         return
                     self._vecs[i] = self._embed([f"{entry.title}\n\n{entry.body}"])[0]
                     meta[i] = {"rel_path": entry.rel_path, "id": entry.id, "title": entry.title,
-                               "type": entry.type, "repo": entry.repo, "hash": h}
+                               "type": entry.type, "repo": entry.repo, "hash": h,
+                               "text": _hay(entry.title, entry.body)}
                     self._meta = meta
                     self._persist()
                     return
             vec = self._embed([f"{entry.title}\n\n{entry.body}"])
             self._vecs = vec if (self._vecs is None or len(self._vecs) == 0) else np.vstack([self._vecs, vec])
             meta.append({"rel_path": entry.rel_path, "id": entry.id, "title": entry.title,
-                         "type": entry.type, "repo": entry.repo, "hash": h})
+                         "type": entry.type, "repo": entry.repo, "hash": h,
+                         "text": _hay(entry.title, entry.body)})
             self._meta = meta
             self._persist()
 
@@ -305,7 +317,8 @@ class SemanticSearchBackend:
                 h = content_hash(ent.title, ent.body)
                 idx = len(new_meta)
                 new_meta.append({"rel_path": ent.rel_path, "id": ent.id, "title": ent.title,
-                                 "type": ent.type, "repo": ent.repo, "hash": h})
+                                 "type": ent.type, "repo": ent.repo, "hash": h,
+                                 "text": _hay(ent.title, ent.body)})
                 if ent.rel_path in prev and prev[ent.rel_path][1].get("hash") == h and prev_vecs is not None:
                     new_rows.append(prev_vecs[prev[ent.rel_path][0]]); skipped += 1
                 else:
@@ -339,6 +352,28 @@ class SemanticSearchBackend:
 
     def query(self, text: str, *, limit: int = 25) -> list[MemoryHit]:
         return self._search(text, limit)
+
+    def lexical(self, text: str, *, limit: int = 25) -> list[MemoryHit]:
+        """Term-overlap scoring over the IN-MEMORY index text (no disk reads, no YAML
+        parse) — the fix for the O(N) lexical-scan bottleneck. Same scoring as
+        TextSearchBackend (occurrence count + title bonus) but ~100x faster at scale."""
+        import re
+        self._ensure_loaded()
+        terms = [w for w in re.findall(r"\w+", (text or "").lower()) if len(w) > 2]
+        if not terms or not self._meta:
+            return []
+        hits: list[MemoryHit] = []
+        for m in self._meta:
+            hay = m.get("text")
+            if not hay:
+                continue
+            title_l = (m.get("title") or "").lower()
+            score = sum(hay.count(t) + (2.0 if t in title_l else 0.0) for t in terms)
+            if score > 0:
+                hits.append(MemoryHit(id=m.get("id"), rel_path=m["rel_path"], title=m["title"],
+                                      type=m.get("type"), repo=m.get("repo"), score=score))
+        hits.sort(key=lambda h: h.score, reverse=True)
+        return hits[:limit]
 
     def find_similar(self, text: str, *, limit: int = 5, min_score: float = 0.0) -> list[MemoryHit]:
         return [h for h in self._search(text, limit) if h.score >= min_score]

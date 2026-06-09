@@ -111,6 +111,39 @@ def test_torn_two_file_read_does_not_crash_search(store, generic, monkeypatch):
     assert all(h.rel_path for h in hits)
 
 
+def test_lexical_in_memory_matches_disk_scan(store, generic, monkeypatch):
+    # the O(N)-disk-scan fix: lexical() over in-memory index text must rank the same
+    # as the disk-reading TextSearchBackend (same scoring), just far faster.
+    from engram.core.search_backends import TextSearchBackend
+    monkeypatch.setattr(SemanticSearchBackend, "_embed", _fake_embed)
+    for t, b in [("Redis cache", "we use redis for the session cache layer"),
+                 ("Postgres billing", "store money as integer cents in postgres"),
+                 ("Blue-green deploy", "ship with blue-green to avoid cache downtime")]:
+        memory.save(store, generic, type_="Decision", title=t, body=b)
+    sb = _backend(store)
+    sb.reindex_all(store)
+    assert all("text" in m for m in sb._meta)              # searchable text stored
+    q = "redis cache session"
+    mem = [h.title for h in sb.lexical(q, limit=5)]
+    disk = [h.title for h in TextSearchBackend(store).query(q, limit=5)]
+    assert set(mem) == set(disk) and mem[0] == disk[0]     # same hits, same top
+
+
+def test_old_index_auto_upgrades_to_lexical_text(store, generic, monkeypatch):
+    monkeypatch.setattr(SemanticSearchBackend, "_embed", _fake_embed)
+    memory.save(store, generic, type_="Note", title="Alpha", body="alpha beta gamma")
+    sb = _backend(store)
+    sb.reindex_all(store)
+    # simulate a pre-upgrade index: strip the new `text` field and persist
+    for m in sb._meta:
+        m.pop("text", None)
+    sb._persist()
+    fresh = _backend(store)
+    fresh._ensure_loaded()                                  # auto-upgrade on load
+    assert all("text" in m for m in fresh._meta)
+    assert [h.title for h in fresh.lexical("alpha", limit=3)] == ["Alpha"]
+
+
 def test_reindex_drops_deleted_notes(store, generic, monkeypatch):
     monkeypatch.setattr(SemanticSearchBackend, "_embed", _fake_embed)
     ra = memory.save(store, generic, type_="Note", title="A", body="aaa")
