@@ -7,6 +7,24 @@ All notable changes to **engram** are documented here. The format follows
 ## [Unreleased]
 - Team sharing (opt-in, redacted) over the dormant `visibility` axis.
 
+## [0.16.0] — 2026-06-08
+Auto-contradiction detection — a stale fact that's been corrected no longer lingers.
+Researched against the field (mem0's ADD/UPDATE/DELETE-over-retrieved-neighborhood;
+Zep/Graphiti's "invalidate, don't delete"); engram already had the right primitive
+(`supersede` = retire-with-history, recoverable), so the fix is the judge.
+### Added
+- At capture, the project's related existing memories are injected into the
+  extraction prompt; when a new fact makes one **obsolete or false**, the LLM marks
+  `supersedes` and engram retires the old one automatically (kept, dated, recoverable
+  — never deleted). One LLM call (the existing extraction), no extra cost.
+- **Safety:** the model can only supersede memories actually shown to it
+  (guards against an over-broad/hallucinated retire), and supersede is recoverable,
+  so a false positive isn't data loss. Conservative prompt (clear contradictions
+  only). `ENGRAM_DETECT_CONTRADICTIONS` (default on).
+- Verified with the real `claude -p`: it superseded a reversed deploy decision and
+  left an unrelated convention untouched (precision held). Unit + end-to-end tests
+  with a stub LLM; optimizer prompt-placeholder contract updated.
+
 ## [0.15.0] — 2026-06-08
 ### Fixed — auto-maintenance never actually ran
 - Live verification (`maintenance.json` had never been written) showed the

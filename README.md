@@ -168,10 +168,14 @@ graph-expansion recall has real edges to traverse, instead of a pile of orphans.
   *compact index* — each hit carries a bounded `snippet` and a `created` date, not
   the full body. The agent judges relevance from the index and pulls full bodies
   with `memory_read` only when it needs them. Cheap recall, no token blowups.
-- **Temporal correctness.** When a memory supersedes another, the retired one is
-  kept but stamped with a dated back-reference (`superseded_by` / `superseded_on`);
-  recall surfaces the *current* fact while history stays traceable. `created` is an
-  age signal so a stale fact can be discounted.
+- **Temporal correctness + auto-contradiction.** Capture shows the LLM the
+  project's related existing memories; when a new fact makes one **obsolete or
+  false** (a reversed decision, a changed convention), the LLM marks it `supersedes`
+  and engram retires the old one automatically — kept but stamped with a dated
+  back-reference (`superseded_by` / `superseded_on`), recoverable, never deleted
+  (the mem0/Zep "invalidate, don't delete" model). Recall surfaces the *current*
+  fact; history stays traceable. Conservative by design + guarded to only retire
+  memories actually shown to the model. `ENGRAM_DETECT_CONTRADICTIONS=false` to opt out.
 - **`<private>` redaction.** Anything you wrap in `<private>…</private>` is stripped
   **before any capture** — it never reaches the store, summarizer, index, or working
   memory (and an unclosed tag fails safe). On by default; `ENGRAM_REDACT_PRIVATE=false`
@@ -341,6 +345,7 @@ uv run pytest -q
 | `ENGRAM_CAPTURE_ON_STOP` | `true` | Incremental end-of-turn (`Stop`) capture. Set `false` to capture only at PreCompact/SessionEnd. |
 | `ENGRAM_CAPTURE_EVERY_TURNS` | `13` | Min new user turns before a `Stop` capture fires (lower = more durable + more frequent distillation; higher = less overhead). PreCompact/SessionEnd flush the remainder regardless. |
 | `ENGRAM_DETECT_PREFERENCES` | `true` | Auto-learn standing preferences from your sessions. |
+| `ENGRAM_DETECT_CONTRADICTIONS` | `true` | At capture, let the LLM mark a new fact as superseding an existing one it makes obsolete (retire-with-history, recoverable). |
 | `ENGRAM_REDACT_PRIVATE` | `true` | Strip `<private>…</private>` spans before any capture (store, summarizer, index, working memory). |
 | `ENGRAM_MANAGE_CLAUDE_MD` | `true` | Maintain engram's managed preferences block in `CLAUDE.md`. |
 | `ENGRAM_CLAUDE_MD_PATH` | project `./CLAUDE.md` | Where the managed block is written (set to `~/.claude/CLAUDE.md` for truly global). |

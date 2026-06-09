@@ -71,7 +71,7 @@ def test_capture_attributes_to_edited_repo_not_cwd(tmp_path, store, generic,
     tp = tmp_path / "t.jsonl"
     tp.write_text("\n".join(json.dumps(x) for x in lines), encoding="utf-8")
     monkeypatch.setattr(summarizer, "summarize_session",
-                        lambda s_, set_, txt, *, role, repo: [
+                        lambda s_, set_, txt, *, role, repo, candidates=None: [
                             {"type": "Decision", "title": "Pg billing", "body": "postgres for billing"}])
 
     capture.capture_delta(store, Settings(summarizer="heuristic", manage_claude_md=False),
@@ -91,7 +91,7 @@ def test_explicit_override_beats_inference(tmp_path, store, generic, text_backen
     tp = tmp_path / "t.jsonl"
     tp.write_text("\n".join(json.dumps(x) for x in lines), encoding="utf-8")
     monkeypatch.setattr(summarizer, "summarize_session",
-                        lambda s_, set_, txt, *, role, repo: [
+                        lambda s_, set_, txt, *, role, repo, candidates=None: [
                             {"type": "Decision", "title": "Pinned", "body": "body"}])
     capture.capture_delta(store, Settings(repo="pinned-repo", summarizer="heuristic",
                                           manage_claude_md=False),

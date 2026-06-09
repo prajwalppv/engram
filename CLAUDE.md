@@ -10,6 +10,9 @@
 - When recording decisions or notes, be verbose and faithful — preserve HOW the thinking evolved (the messy middle), not only the final state. Prefer redundancy over loss. I value the journey as much as the destination.
 - For Python work, use uv (never pip) and Python 3.13. Run tests with `uv run pytest`. Manage deps in pyproject.toml. This is my standard Python toolchain.
 - I strongly prefer privacy and local-first design: on-device, no telemetry, no servers/auth, no vendor lock-in. Favor pluggable seams so components are swappable. This is a core value, not a nice-to-have (it's the whole ethos behind engram).
+- dont leave stray shit in github.
+- Never raises.
+- Never end responses by proposing to stop/pause or asking "want me to continue / is this a good place to stop?" — it's tiring filler. Keep working through the task; the user decides when to stop and what's next. Just report what was done and proceed; no stopping-coda, no permission-fishing.
 - In the vault, keep MY words as mine; put Claude's research/analysis under a "Muse's add-on" section. Three personas: PJ (professional/engineer → Technology & Work), Vibestar (creative → Creative), Prajju (personal → Life). Five areas: Work, Technology, Finance, Creative, Life. Be verbose and faithful — the journey matters.  _(area)_
 - My Obsidian vault is "Life-e-Jeevana" at ~/Documents/Obsidian/Life-e-Jeevana. NEVER hand-write or edit vault markdown directly — ALL writes go through .scripts/obsidian.py (new / link / enrich / daily / snapshot / find). Read .scripts/VAULT.md first; it's the source of truth for identity, areas, types, and conventions.  _(area)_
 - Vault rules: relationships are QUOTED wikilinks in YAML; one note per title (dedup with `find` before creating); prefer ENRICH over thin new notes; snapshot before AND after a sync; leave a dated `Journal/_Sync Report`; unplaceable notes go to Inbox for triage. Capacities is RETIRED — never read from or write to it.  _(area)_

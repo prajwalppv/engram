@@ -54,8 +54,26 @@ def capture_session(
                 store, role, transcript_text, repo=repo, search_backend=search_backend)
         except Exception:
             pass
+    # Auto-contradiction: inject the project's related existing memories so the LLM
+    # can mark `supersedes` on a fact that makes one obsolete (mem0/Zep pattern).
+    candidates: list[dict] = []
+    cand_titles: set[str] = set()
+    if getattr(settings, "detect_contradictions", True) and search_backend is not None:
+        try:
+            hits = search_backend.find_similar(transcript_text[-4000:], limit=8)
+            for h in hits:
+                try:
+                    ent = memory.read(store, h.rel_path)
+                except Exception:
+                    continue
+                if ent.repo == repo and ent.horizon == "semantic":
+                    candidates.append({"title": ent.title, "snippet": memory.snippet(ent.body)})
+                    cand_titles.add(ent.title)
+        except Exception:
+            pass
+
     items = summarizer.summarize_session(
-        store, settings, transcript_text, role=role, repo=repo)
+        store, settings, transcript_text, role=role, repo=repo, candidates=candidates)
     dedup = getattr(settings, "dedup_on_capture", True)
     autolink = getattr(settings, "autolink_on_capture", True)
     for it in items:
@@ -88,9 +106,15 @@ def capture_session(
                     links = list(dict.fromkeys(links))
                 except Exception:
                     pass
+        # Supersede only memories we actually injected as candidates (guards against
+        # an over-broad / hallucinated supersede), and only for genuinely new nodes.
+        supersedes = None
+        if not merged:
+            sup = [t for t in (it.get("supersedes") or []) if t in cand_titles]
+            supersedes = sup or None
         res = memory.save(
             store, role, type_=it["type"], title=title, body=it["body"],
-            repo=repo, tags=it.get("tags"), links=links or None,
+            repo=repo, tags=it.get("tags"), links=links or None, supersedes=supersedes,
             session_id=session_id, search_backend=search_backend,
         )
         results.append(res)

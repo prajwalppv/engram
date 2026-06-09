@@ -43,6 +43,14 @@ Extraction focus: {extraction_hint}
 Memory node types available for this role: {node_types}
 Current project (repo): {repo}
 
+EXISTING MEMORY already held for this project:
+{existing_memory}
+If a fact you extract makes one of those EXISTING memories factually OBSOLETE or
+FALSE (a corrected decision, a changed convention, a reversed gotcha), put that
+memory's EXACT title into the new fact's "supersedes" array. Be conservative — only
+supersede a clear contradiction/correction, NEVER a memory that is merely related
+or still true.
+
 From the transcript below, extract the FEW most durable, reusable facts worth
 remembering in a future session. Prefer "why we did X", non-obvious gotchas,
 conventions, and key context over transient chatter. Skip anything ephemeral.
@@ -52,6 +60,7 @@ Output ONLY a JSON array (no prose) of 1-8 objects, each:
     "title": "<short, specific, unique — also the graph link target>",
     "body": "<1-5 sentences, durable and self-contained>",
     "links": ["<title of a related memory, if any>"],
+    "supersedes": ["<exact title of an EXISTING memory this fact makes obsolete, if any>"],
     "tags": ["<short tag>"]}}
 If nothing is worth remembering, output [].
 
@@ -73,11 +82,15 @@ def _load_prompt(store: "Store | None") -> str:
 
 
 def render_prompt(template: str, *, role: "Role", repo: str | None,
-                  transcript: str, max_chars: int = 24000) -> str:
+                  transcript: str, candidates: list[dict] | None = None,
+                  max_chars: int = 24000) -> str:
+    existing = "\n".join(f"- {c['title']}: {c.get('snippet', '')}"
+                         for c in (candidates or [])[:8]) or "(none yet)"
     return template.format(
         role_name=role.name, role_description=role.description,
         extraction_hint=role.extraction_hint(),
         node_types=", ".join(role.node_types), repo=repo or "general",
+        existing_memory=existing,
         transcript=transcript[-max_chars:],
     )
 
@@ -147,6 +160,7 @@ def _parse_items(text: str) -> list[dict]:
             "title": title,
             "body": body,
             "links": [str(x) for x in (it.get("links") or []) if x],
+            "supersedes": [str(x) for x in (it.get("supersedes") or []) if x],
             "tags": [str(x) for x in (it.get("tags") or []) if x],
         })
     return out
@@ -155,7 +169,8 @@ def _parse_items(text: str) -> list[dict]:
 class HeuristicSummarizer:
     name = "heuristic"
 
-    def summarize(self, transcript_text: str, *, role: "Role", repo: str | None) -> list[dict]:
+    def summarize(self, transcript_text: str, *, role: "Role", repo: str | None,
+                  candidates: list[dict] | None = None) -> list[dict]:
         events = [{"role": "user", "text": transcript_text}]
         d = ingest.distill(events, repo=repo, full_text=transcript_text)
         if not d:
@@ -176,22 +191,27 @@ class ClaudeHeadlessSummarizer:
     def available(self) -> bool:
         return shutil.which("claude") is not None
 
-    def summarize(self, transcript_text: str, *, role: "Role", repo: str | None) -> list[dict]:
+    def summarize(self, transcript_text: str, *, role: "Role", repo: str | None,
+                  candidates: list[dict] | None = None) -> list[dict]:
         prompt = render_prompt(_load_prompt(self.store), role=role, repo=repo,
-                               transcript=transcript_text, max_chars=self.max_chars)
+                               transcript=transcript_text, candidates=candidates,
+                               max_chars=self.max_chars)
         return _parse_items(run_claude(prompt, timeout=self.timeout))
 
 
 def summarize_session(
     store: "Store", settings: "Settings", transcript_text: str, *,
-    role: "Role", repo: str | None,
+    role: "Role", repo: str | None, candidates: list[dict] | None = None,
 ) -> list[dict]:
-    """Run the configured summarizer with a safe heuristic fallback. Never raises."""
+    """Run the configured summarizer with a safe heuristic fallback. Never raises.
+    ``candidates`` = related existing memories injected into the prompt so the LLM
+    can mark `supersedes` on a fact that makes one obsolete (auto-contradiction)."""
     heuristic = HeuristicSummarizer()
     if settings.summarizer == "claude":
         primary = ClaudeHeadlessSummarizer(store=store, timeout=settings.summarizer_timeout)
         try:
-            items = primary.summarize(transcript_text, role=role, repo=repo)
+            items = primary.summarize(transcript_text, role=role, repo=repo,
+                                      candidates=candidates)
             if items:
                 return items
         except Exception:

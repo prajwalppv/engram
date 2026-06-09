@@ -36,7 +36,7 @@ def test_capture_session_heuristic_saves_and_updates_role(store):
 def test_capture_session_llm_saves_multiple_typed_nodes(store, monkeypatch):
     settings = Settings(summarizer="claude", role="swe")
 
-    def fake_summarize(self, transcript_text, *, role, repo):
+    def fake_summarize(self, transcript_text, *, role, repo, candidates=None):
         return [
             {"type": "Decision", "title": "Adopt feature flags", "body": "Ship dark.",
              "links": [], "tags": ["release"]},

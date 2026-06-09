@@ -61,7 +61,7 @@ def test_capture_merges_near_duplicate(store, generic, text_backend, monkeypatch
     before = sum(1 for _ in store.iter_entries())
 
     # summarizer yields a RESTATEMENT (different title, same fact) + a DISTINCT fact
-    def fake_items(store_, settings_, text_, *, role, repo):
+    def fake_items(store_, settings_, text_, *, role, repo, candidates=None):
         return [
             {"type": "Decision", "title": "Cache via Redis",
              "body": "we use redis as the session cache layer for sessions"},
@@ -107,7 +107,7 @@ def test_capture_autolinks_new_node(store, generic, text_backend, monkeypatch):
     memory.save(store, generic, type_="Decision", title="Use Redis for cache",
                 body="we use redis for the session cache layer", search_backend=text_backend)
 
-    def fake_items(store_, settings_, text_, *, role, repo):
+    def fake_items(store_, settings_, text_, *, role, repo, candidates=None):
         return [{"type": "Gotcha", "title": "Redis eviction surprises",
                  "body": "redis cache eviction can drop session keys unexpectedly"}]
     monkeypatch.setattr(summarizer, "summarize_session", fake_items)
@@ -195,7 +195,7 @@ def test_capture_dedup_can_be_disabled(store, generic, text_backend, monkeypatch
                 body="we use redis as the session cache layer", search_backend=text_backend)
     before = sum(1 for _ in store.iter_entries())
 
-    def fake_items(store_, settings_, text_, *, role, repo):
+    def fake_items(store_, settings_, text_, *, role, repo, candidates=None):
         return [{"type": "Decision", "title": "Cache via Redis",
                  "body": "we use redis as the session cache layer for sessions"}]
     monkeypatch.setattr(summarizer, "summarize_session", fake_items)

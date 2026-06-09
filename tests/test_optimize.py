@@ -62,7 +62,7 @@ def _fake_extract(prompt, transcript, repo):
 def test_optimize_accepts_better_prompt(store):
     _seed_cases(store)
     settings = Settings()
-    cand = "BETTER extraction. {role_name} {role_description} {extraction_hint} {node_types} {repo} {transcript}"
+    cand = "BETTER extraction. {role_name} {role_description} {extraction_hint} {node_types} {repo} {existing_memory} {transcript}"
     res = optimize.optimize_extraction_prompt(
         store, settings, proposer=_FakeProposer(cand), extract_fn=_fake_extract)
     assert res["accepted"] and res["candidate_score"] > res["base_score"]
@@ -73,7 +73,7 @@ def test_optimize_accepts_better_prompt(store):
 def test_optimize_rejects_non_improving(store):
     _seed_cases(store)
     settings = Settings()
-    cand = "still bad but different {transcript}"  # no BETTER → score 0, not > base 0
+    cand = "still bad but different {existing_memory} {transcript}"  # no BETTER → score 0, not > base 0
     res = optimize.optimize_extraction_prompt(
         store, settings, proposer=_FakeProposer(cand), extract_fn=_fake_extract)
     assert res["accepted"] is False
@@ -95,7 +95,7 @@ def test_optimize_needs_minimum_cases(store):
 
 def test_prompt_rollback(store):
     _seed_cases(store)
-    cand = "BETTER {role_name} {role_description} {extraction_hint} {node_types} {repo} {transcript}"
+    cand = "BETTER {role_name} {role_description} {extraction_hint} {node_types} {repo} {existing_memory} {transcript}"
     optimize.optimize_extraction_prompt(
         store, Settings(), proposer=_FakeProposer(cand), extract_fn=_fake_extract)
     assert "BETTER" in optimize.active_prompt(store)

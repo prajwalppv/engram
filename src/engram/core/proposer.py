@@ -22,7 +22,7 @@ It under-performs on these cases (low expected-term coverage):
 Rewrite the prompt to better capture the expected information, while keeping it
 general (do not overfit to these examples). You MUST preserve every placeholder
 exactly: {{role_name}} {{role_description}} {{extraction_hint}} {{node_types}}
-{{repo}} {{transcript}}. Output ONLY the new prompt text, no commentary.
+{{repo}} {{existing_memory}} {{transcript}}. Output ONLY the new prompt text, no commentary.
 """
 
 

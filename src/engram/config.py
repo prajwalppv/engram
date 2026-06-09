@@ -85,6 +85,11 @@ class Settings(BaseSettings):
     dedup_on_capture: bool = Field(default=True)
     dedup_lex_threshold: float = Field(default=0.7)   # token-Jaccard floor to merge
     dedup_sem_threshold: float = Field(default=0.88)  # cosine floor (semantic backend)
+    # Auto-contradiction: inject related existing memories into the extraction prompt
+    # so the LLM marks `supersedes` when a new fact makes an old one obsolete/false.
+    # Supersede is recoverable (retire-with-history), so a false positive isn't data
+    # loss — but the prompt is conservative (only clear contradictions).
+    detect_contradictions: bool = Field(default=True)
     # Auto-link a new memory to related neighbors at capture, so the graph is
     # load-bearing (graph-expansion recall) instead of a pile of orphans.
     autolink_on_capture: bool = Field(default=True)

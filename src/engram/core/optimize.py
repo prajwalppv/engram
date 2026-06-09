@@ -157,9 +157,10 @@ def optimize_extraction_prompt(
     if not candidate or candidate.strip() == current.strip():
         return {"changed": False, "reason": "no new candidate proposed",
                 "base_score": base}
-    if "{transcript}" not in candidate:  # safety: must keep the data placeholder
-        return {"changed": False, "reason": "candidate dropped {transcript} placeholder",
-                "base_score": base}
+    for ph in ("{transcript}", "{existing_memory}"):  # safety: must keep placeholders
+        if ph not in candidate:
+            return {"changed": False, "reason": f"candidate dropped {ph} placeholder",
+                    "base_score": base}
 
     cand = ev.score_extraction(candidate, holdout, extract_fn)
     accepted = cand > base  # GATE: must beat baseline on held-out
